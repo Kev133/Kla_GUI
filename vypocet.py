@@ -12,25 +12,46 @@ class Optimalizace():
     def __init__(self,impulse,namerene):
         self.impulse= impulse
         self.namerene= namerene
-
+        self.namereneN=[]
         self.vysledek = self.opt()
+        self.funkce = []
 
+    def to_opt(self,kla):
+        self.funkce = []
+        tau= np.linspace(0, 100, num=150)
+        self.hod = np.exp(-kla*tau)
 
-    def to_opt(self,x):
-        return sum((np.convolve(x, self.impulse) - self.namerene) ** 2)
+        values = self.hod
+        for i in range(0, len(values)):
+            self.funkce.append(
+                (values[i] - max(values)) / (min(values) - max(values)))
+        print (kla)#TODO tohle at to pak narysuje v tom grafu, nice
+        return sum((np.convolve(self.funkce, self.impulse) - self.namerene) ** 2)
 
 
 
     def opt(self):
-        x0=[0.5]*150
+        x0 = 0.5
         return scipy.optimize.minimize(self.to_opt, x0)
-
 
 # vykresleni do grafu
     def graph(self):
+        tau = np.linspace(0, 100, num=150)
+        self.hod = np.exp(-0.1575 * tau)
+        values = self.hod
+        for i in range(0, len(values)):
+            self.funkce.append(
+                (values[i] - max(values)) / (min(values) - max(values)))
+
+
+
+        for i in range(0, len(self.namerene)):
+            self.namereneN.append(
+                (self.namerene[i] - min(self.namerene)) / (max(self.namerene) - min(self.namerene)))
+
         fig, axes = plt.subplots(1, 1)
-        axes.plot(self.namerene[0:int(len(self.namerene)/2)], marker=".", label="Naměřené hodnoty", color='tab:red')
-        axes.plot(self.vysledek.x, marker=".", label="Odhah po optimalizaci", color='tab:green')
+        axes.plot(self.namereneN[0:int(len(self.namereneN)/2)], marker=".", label="Naměřené hodnoty", color='tab:red')
+        axes.plot(self.funkce, marker=".", label="Odhah po optimalizaci", color='tab:green')
         axes.plot(self.impulse, marker=".", label="Impulse", color='tab:orange')
         axes.legend(['Naměřené hodnoty', 'Odhad po optimalizaci', "impulzní charakteristika"])
         axes.set_xlabel("x")
@@ -39,3 +60,8 @@ class Optimalizace():
 
         plt.show()
 
+
+
+
+if __name__=="__main__":
+    pass

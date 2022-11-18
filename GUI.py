@@ -15,7 +15,7 @@ class Hlavni(qtw.QMainWindow):
         self.name = None
         self.namerene = None
         self.char_sondy = None
-        # definovani vlastnosti pro program
+
         self.init_ui()
 
     def init_ui(self):
@@ -26,7 +26,7 @@ class Hlavni(qtw.QMainWindow):
 
         self.setGeometry(200, 200, 900, 580)
         self.setWindowIcon(qtg.QIcon('kla_icon.png'))
-
+        self.setStyleSheet("")
         self.button1 = QPushButton(" Přidat adresář", self)
         self.button1.setGeometry(250, 100, 110, 30)
         self.button1.clicked.connect(self.pruzkum)
@@ -36,7 +36,7 @@ class Hlavni(qtw.QMainWindow):
 
         self.button1.setIcon(icon)
 
-        self.file_label = QLabel("               --cesta ke složce s daty-- ", self)
+        self.file_label = QLabel("               Kla je:  ", self)
         self.file_label.setGeometry(10, 100, 230, 30)
 
         self.button_help = QPushButton("Help", self)
@@ -56,7 +56,6 @@ class Hlavni(qtw.QMainWindow):
     def pruzkum(self):
         name = QFileDialog.getExistingDirectory(self)
         if name:
-            self.file_label.setText(str(name))
             self.name = name
             self.info_for_user.appendPlainText("Data pro výpočet jsou v souboru\n"+name+"\n")
 
@@ -105,6 +104,7 @@ class Hlavni(qtw.QMainWindow):
         self.vysledek = vypocet.Optimalizace(self.char_sondy,self.namerene).vysledek.x
         self.info_for_user.appendPlainText("Úspěšně vypočteno\n")
         vypocet.Optimalizace(self.char_sondy,self.namerene).graph()
+        self.file_label.setText(str(self.vysledek))
         self.ulozeni_dat()
 
     def ulozeni_dat(self):

@@ -14,13 +14,14 @@ tau = np.linspace(0, 15, num=150)
 x0 = len(tau) * [0.5]
 # charakteristika sondy
 #impulse_response = np.linspace(0, 3, num=kolik_bodu)
-impulse_response= np.exp(-1.5*tau)*(-1.5*tau)
+impulse_response= np.exp(-1.05*tau)*(-1.05*tau)
 for i in range (0,len(impulse_response)):
     impulse_responseN.append(
         (impulse_response[i]-max(impulse_response))/(min(impulse_response)-max(impulse_response)))
 
 # normalizace opravdových hodnot
-real_values = np.exp(-1.05*tau)
+kla=1.253
+real_values = np.exp(-kla*tau)
 for i in range(0, len(real_values)):
     real_valuesN.append(
         (real_values[i] - max(real_values)) / (min(real_values) - max(real_values)))
@@ -40,7 +41,7 @@ for i in range (0,len(measured_values)):
 #ulozeni dat do slozek pro GUI
 
 with open( "C:/Users/Kevin/Desktop/tahle slozka/neco/namerene_hodnoty.txt", 'w') as f:
-    for line in measured_valuesN:
+    for line in measured_values:
         f.write(f"{line}\n")
 with open( "C:/Users/Kevin/Desktop/tahle slozka/neco/konstant.txt", 'w') as f:
     for line in impulse_responseN:
