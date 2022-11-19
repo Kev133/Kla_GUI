@@ -9,7 +9,7 @@ real_valuesN = []
 guessN = []
 impulse_responseN=[];
 # zavedeni promenne tau
-tau = np.linspace(0, 15, num=150)
+tau = np.linspace(0, 15, num=400)
 # nastrel x0 pro optimalizaci
 x0 = len(tau) * [0.5]
 # charakteristika sondy
@@ -20,7 +20,7 @@ for i in range (0,len(impulse_response)):
         (impulse_response[i]-max(impulse_response))/(min(impulse_response)-max(impulse_response)))
 
 # normalizace opravdových hodnot
-kla=1.253
+kla=0.7
 real_values = np.exp(-kla*tau)
 for i in range(0, len(real_values)):
     real_valuesN.append(

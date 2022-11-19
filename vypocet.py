@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 
 
 
+
+
+
 #TODO neslo by pridat i kLa ktere se pak teda najde po optimalizaci? Bylo by to zajimavy tak nakodovat
 # a alspon vic motivace pro me, spis ale spare time vec
 
@@ -18,27 +21,27 @@ class Optimalizace():
 
     def to_opt(self,kla):
         self.funkce = []
-        tau= np.linspace(0, 100, num=150)
+        tau= np.linspace(0, 100, num=400)
         self.hod = np.exp(-kla*tau)
 
         values = self.hod
         for i in range(0, len(values)):
             self.funkce.append(
                 (values[i] - max(values)) / (min(values) - max(values)))
-        print (kla)#TODO tohle at to pak narysuje v tom grafu, nice
         return sum((np.convolve(self.funkce, self.impulse) - self.namerene) ** 2)
 
 
 
     def opt(self):
         x0 = 0.5
-        return scipy.optimize.minimize(self.to_opt, x0)
+        return scipy.optimize.minimize(self.to_opt, x0).x
 
 # vykresleni do grafu
     def graph(self):
         tau = np.linspace(0, 100, num=150)
-        self.hod = np.exp(-0.1575 * tau)
+        self.hod = np.exp(-0.1879 * tau)
         values = self.hod
+
         for i in range(0, len(values)):
             self.funkce.append(
                 (values[i] - max(values)) / (min(values) - max(values)))
@@ -57,8 +60,9 @@ class Optimalizace():
         axes.set_xlabel("x")
         axes.set_ylabel("y")
         fig.suptitle('Optimalizační model')
-
         plt.show()
+
+
 
 
 
