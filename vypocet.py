@@ -16,7 +16,7 @@ class Optimalizace():
         self.impulse= impulse
         self.namerene= namerene
         self.namereneN=[]
-        self.vysledek = self.opt()
+        #self.vysledek = self.opt()
         self.funkce = []
 
     def to_opt(self,kla):
@@ -32,11 +32,18 @@ class Optimalizace():
 
 
 
-    def opt(self):
+    def opt(self,choice):
         x0 = 0.5
-        return scipy.optimize.minimize(self.to_opt, x0).x
-
-# vykresleni do grafu
+        print(choice)
+        if choice == 1:
+            return scipy.optimize.minimize(self.to_opt, x0,method ="Nelder-Mead").x
+        elif choice == 2:
+            return scipy.optimize.minimize(self.to_opt, x0,method ="BFGS").x
+        elif choice == 3:
+            return scipy.optimize.minimize(self.to_opt, x0,method ="SLSQP").x
+        else:
+            pass
+# vykresleni do grafu, nepouzivane
     def graph(self):
         tau = np.linspace(0, 100, num=150)
         self.hod = np.exp(-0.1879 * tau)
