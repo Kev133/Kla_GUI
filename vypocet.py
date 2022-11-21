@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 import sys
 import matplotlib.pyplot as plt
-
+import time
 
 
 
@@ -21,7 +21,7 @@ class Optimalizace():
 
     def to_opt(self,kla):
         self.funkce = []
-        tau= np.linspace(0, 100, num=400)
+        tau= np.linspace(0, 100, num=1000)
         self.hod = np.exp(-kla*tau)
 
         values = self.hod
@@ -33,19 +33,18 @@ class Optimalizace():
 
 
     def opt(self,choice):
-        x0 = 0.5
-        print(choice)
+        x0 = 0.1
         if choice == 1:
             return scipy.optimize.minimize(self.to_opt, x0,method ="Nelder-Mead").x
         elif choice == 2:
             return scipy.optimize.minimize(self.to_opt, x0,method ="BFGS").x
         elif choice == 3:
-            return scipy.optimize.minimize(self.to_opt, x0,method ="SLSQP").x
+            return scipy.optimize.minimize(self.to_opt, x0,method ="Powell").x
         else:
-            pass
+            print(choice)
 # vykresleni do grafu, nepouzivane
     def graph(self):
-        tau = np.linspace(0, 100, num=150)
+        tau = np.linspace(0, 100, num=500)
         self.hod = np.exp(-0.1879 * tau)
         values = self.hod
 

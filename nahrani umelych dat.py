@@ -9,7 +9,7 @@ real_valuesN = []
 guessN = []
 impulse_responseN=[];
 # zavedeni promenne tau
-tau = np.linspace(0, 15, num=400)
+tau = np.linspace(0, 15, num=1000)
 # nastrel x0 pro optimalizaci
 x0 = len(tau) * [0.5]
 # charakteristika sondy
@@ -40,9 +40,9 @@ for i in range (0,len(measured_values)):
         (measured_values[i]-min(measured_values))/(max(measured_values)-min(measured_values)))
 #ulozeni dat do slozek pro GUI
 
-with open( "C:/Users/Kevin/Desktop/tahle slozka/neco/namerene_hodnoty.txt", 'w') as f:
+with open( "C:/Users/Kevin/Desktop/Bakalarka/example_data/namerene_hodnoty.txt", 'w') as f:
     for line in measured_values:
         f.write(f"{line}\n")
-with open( "C:/Users/Kevin/Desktop/tahle slozka/neco/konstant.txt", 'w') as f:
+with open( "C:/Users/Kevin/Desktop/Bakalarka/example_data/konstant.txt", 'w') as f:
     for line in impulse_responseN:
         f.write(f"{line}\n")
