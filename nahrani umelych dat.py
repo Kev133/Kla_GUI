@@ -20,7 +20,7 @@ for i in range (0,len(impulse_response)):
         (impulse_response[i]-max(impulse_response))/(min(impulse_response)-max(impulse_response)))
 
 # normalizace opravdových hodnot
-kla=0.7
+kla=0.701
 real_values = np.exp(-kla*tau)
 for i in range(0, len(real_values)):
     real_valuesN.append(
@@ -40,9 +40,9 @@ for i in range (0,len(measured_values)):
         (measured_values[i]-min(measured_values))/(max(measured_values)-min(measured_values)))
 #ulozeni dat do slozek pro GUI
 
-with open( "C:/Users/Kevin/Desktop/Bakalarka/example_data/namerene_hodnoty.txt", 'w') as f:
+with open( "C:/Users/Kevin/Desktop/program/example_data/namerene_hodnoty.txt", 'w') as f:
     for line in measured_values:
         f.write(f"{line}\n")
-with open( "C:/Users/Kevin/Desktop/Bakalarka/example_data/konstant.txt", 'w') as f:
+with open( "C:/Users/Kevin/Desktop/program/example_data/konstant.txt", 'w') as f:
     for line in impulse_responseN:
         f.write(f"{line}\n")

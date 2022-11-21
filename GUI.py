@@ -13,7 +13,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 import time
-
+import pandas as pd
+import openpyxl
 
 class Hlavni(qtw.QMainWindow):
     def __init__(self):
@@ -56,7 +57,7 @@ class Hlavni(qtw.QMainWindow):
         #radiobutton
         self.group_box = QGroupBox(self)
         self.group_box.setTitle("Optimalizační metoda")
-        self.group_box.setFont(qtg.QFont("Sanserif",10))
+        self.group_box.setFont(qtg.QFont("Arial",11))
         # vbox = QVBoxLayout()
         # vbox.addWidget(self.group_box)
         self.group_box.setGeometry(70,10,330,100)
@@ -77,8 +78,9 @@ class Hlavni(qtw.QMainWindow):
 
         self.group_box.setLayout(self.hbox_layout)
         self.group_box.setFont(qtg.QFont("Arial", 11))
+
         self.info_for_user = QPlainTextEdit("Vítejte v programu na výpočet kLa.\n\n\n", self)
-        self.info_for_user.setGeometry(580, 20, 300, 440)
+        self.info_for_user.setGeometry(580, 20, 270, 440)
         self.info_for_user.setReadOnly(True)
 
 
@@ -158,11 +160,11 @@ class Hlavni(qtw.QMainWindow):
         print(self.elapsed_time)
         #self.info_for_user.appendPlainText(f"Čas konce výpočtu: {self.end_time}\n")
         self.elapsed_time = self.end_time - self.start_time
-        self.info_for_user.appendPlainText(f"Čas výpočtu: {round(self.elapsed_time,2)} s")
+        self.info_for_user.appendPlainText(f"Čas výpočtu: {round(self.elapsed_time,2)} s\n")
         QtCore.QCoreApplication.processEvents()
         #vypocet.Optimalizace(self.char_sondy,self.namerene).graph()
         self.kla = float(self.vysledek)
-        self.info_for_user.appendPlainText(f"Hodnota kLa je: {round(self.kla,7)} s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE}")
+        self.info_for_user.appendPlainText(f"Hodnota kLa je: {round(self.kla,7)} s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE}\n")
         self.plotni_to()
         QMessageBox.information(self, "Hotovo",f"kLa je: {round(self.kla,5)} s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE}\n"
                                        f"Čas výpočtu: {round(self.elapsed_time,2)} s")
@@ -191,12 +193,11 @@ class Hlavni(qtw.QMainWindow):
         # add toolbar
         self.addToolBar(Qt.BottomToolBarArea, NavigationToolbar(self.canvas, self))
     def ulozeni_dat(self):
+        vyp_excel=pd.DataFrame([self.kla],index=["měření č.1"],columns=["kLa"])
+        with pd.ExcelWriter(self.name+ "\kla_vysledky.xlsx") as writer:
+           vyp_excel.to_excel(writer,sheet_name="vysledky")
 
-        with open(self.name+"/vysledky.txt", 'w') as f:
-                for line in self.vysledek:
-                    f.write(f"{line}\n")
-
-        self.info_for_user.appendPlainText("Výsledek je uložen v souboru vysledky.txt")
+        self.info_for_user.appendPlainText("Výsledek je uložen v excel souboru kla_vysledky.xlsx")
 
 
 def main():
