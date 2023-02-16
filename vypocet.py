@@ -8,8 +8,7 @@ import time
 
 
 
-#TODO neslo by pridat i kLa ktere se pak teda najde po optimalizaci? Bylo by to zajimavy tak nakodovat
-# a alspon vic motivace pro me, spis ale spare time vec
+
 
 class Optimalizace():
     def __init__(self,impulse,namerene):

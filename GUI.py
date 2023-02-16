@@ -50,7 +50,7 @@ class Hlavni(qtw.QMainWindow):
         # self.button_help.clicked.connect(self.help_okno)
         # self.button_help.setGeometry(850, 0, 50, 30)
 
-        self.button2 = QPushButton("Proveď výpočet", self)
+        self.button2 = QPushButton("Provést výpočet", self)
         self.button2.setGeometry(430, 65, 130, 40)
         self.button2.clicked.connect(self.nacteni_dat)
 
@@ -136,6 +136,7 @@ class Hlavni(qtw.QMainWindow):
             with open(self.name+"/namerene_hodnoty.txt", "r") as f:
                 hodnoty1 = f.read().splitlines()
             self.namerene = list(map(float, hodnoty1))
+            print(self.name)
 
             with open(self.name+"/konstant.txt", "r") as f:
                 hodnoty2 = f.read().splitlines()
@@ -152,21 +153,19 @@ class Hlavni(qtw.QMainWindow):
                 self.info_for_user.appendPlainText("V této složce nejsou vhodné soubory pro výpočet.\nZvolte správnou složku.")
 
     def vypocet(self):
-        self.start_time=time.time()
-        #self.info_for_user.appendPlainText(f"Čas začátku výpočtu: {self.start_time} s")
+        self.start_time=time.time() # spustí se čas
+        #zde se vola druhy py soubor s vypoctem a optimalizaci
         self.vysledek = vypocet.Optimalizace(self.char_sondy,self.namerene).opt(self.radio_button_value)
-        self.end_time=time.time()
+        self.end_time=time.time() #vypne se čas
+        #upravy pro zjisteni jak dlouho vypocet trval
         self.elapsed_time=self.end_time-self.start_time
-        print(self.elapsed_time)
-        #self.info_for_user.appendPlainText(f"Čas konce výpočtu: {self.end_time}\n")
-        self.elapsed_time = self.end_time - self.start_time
         self.info_for_user.appendPlainText(f"Čas výpočtu: {round(self.elapsed_time,2)} s\n")
         QtCore.QCoreApplication.processEvents()
         #vypocet.Optimalizace(self.char_sondy,self.namerene).graph()
         self.kla = float(self.vysledek)
         self.info_for_user.appendPlainText(f"Hodnota kLa je: {round(self.kla,7)} s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE}\n")
         self.plotni_to()
-        QMessageBox.information(self, "Hotovo",f"kLa je: {round(self.kla,5)} s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE}\n"
+        QMessageBox.information(self, " Vyhodnoceno",f"kLa je: {round(self.kla,5)} s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE}\n"
                                        f"Čas výpočtu: {round(self.elapsed_time,2)} s")
     def plotni_to(self):
         tau = np.linspace(0, 100, num=1000)
@@ -179,14 +178,13 @@ class Hlavni(qtw.QMainWindow):
             self.namereneN.append(
                 (self.namerene[i] - min(self.namerene)) / (max(self.namerene) - min(self.namerene)))
 
-
         self.fig_ax.plot(self.namereneN[0:int(len(self.namereneN)/2)])
         self.fig_ax.plot(self.char_sondy)
         self.fig_ax.plot(self.model_valuesN)
         self.fig_ax.set_xlabel("čas [s]")
-        self.fig_ax.set_ylabel("dx0\N{SUBSCRIPT TWO} normalizované")
+        self.fig_ax.set_ylabel("x0\N{SUBSCRIPT TWO} normalizované")
         self.fig_ax.margins(x=0)
-        self.fig_ax.legend(["naměřené hodnoty","impulzní charakteristika","funkce z optimalizace"])
+        self.fig_ax.legend(["naměřené hodnoty","impulzní charakteristika","teoretický průběh koncentrace"])
 
         self.canvas.draw()
         self.ulozeni_dat()
@@ -205,7 +203,6 @@ def main():
     app = qtw.QApplication([])
     gui = Hlavni()
     app.exec_()
-
 
 if __name__=="__main__":
     main()
