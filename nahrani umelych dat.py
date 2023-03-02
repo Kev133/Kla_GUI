@@ -9,12 +9,12 @@ real_valuesN = []
 guessN = []
 impulse_responseN=[];
 # zavedeni promenne tau
-tau = np.linspace(0, 15, num=1000)
+tau = np.linspace(0, 15, num=400)
 # nastrel x0 pro optimalizaci
 x0 = len(tau) * [0.5]
 # charakteristika sondy
 #impulse_response = np.linspace(0, 3, num=kolik_bodu)
-impulse_response= np.exp(-1.05*tau)*(-1.05*tau)
+impulse_response= np.exp(-1.05*tau)*(-1.05)
 for i in range (0,len(impulse_response)):
     impulse_responseN.append(
         (impulse_response[i]-max(impulse_response))/(min(impulse_response)-max(impulse_response)))
@@ -40,9 +40,9 @@ for i in range (0,len(measured_values)):
         (measured_values[i]-min(measured_values))/(max(measured_values)-min(measured_values)))
 #ulozeni dat do slozek pro GUI
 
-with open( "C:/Users/Kevin/Desktop/program/example_data/namerene_hodnoty.txt", 'w') as f:
-    for line in measured_values:
-        f.write(f"{line}\n")
-with open( "C:/Users/Kevin/Desktop/program/example_data/konstant.txt", 'w') as f:
+# with open( "C:/Users/Kevin/Desktop/program/example_data/namerene_hodnoty.txt", 'w') as f:
+#     for line in measured_values:
+#         f.write(f"{line}\n")
+with open( "C:/Users/Kevin/Desktop/example_data/konstant.txt", 'w') as f:
     for line in impulse_responseN:
         f.write(f"{line}\n")

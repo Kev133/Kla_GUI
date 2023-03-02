@@ -133,14 +133,46 @@ class Hlavni(qtw.QMainWindow):
         else:
 
             #nacteni dat v souboru namerene_hodnoty
-            with open(self.name+"/namerene_hodnoty.txt", "r") as f:
-                hodnoty1 = f.read().splitlines()
-            self.namerene = list(map(float, hodnoty1))
-            print(self.name)
+            # with open(self.name+"/namerene_hodnoty.txt", "r") as f:
+            #     hodnoty1 = f.read().splitlines()
+            # self.namerene = list(map(float, hodnoty1))
+            # print(self.name)
 
-            with open(self.name+"/konstant.txt", "r") as f:
-                hodnoty2 = f.read().splitlines()
-            self.char_sondy = list(map(float, hodnoty2))
+            self.pokus = []
+            x = np.linspace(0, 155, num=3101)
+            def polynom(self,x):
+                polynome = 0.001 * x ** 2 + 0.6489 * x + 60.034
+                return polynome
+            self.polynom_sonda = polynom(self,x)
+            print(self.polynom_sonda)
+
+            self.namerene = (self.polynom_sonda - self.polynom_sonda.max()) /( self.polynom_sonda.min() - self.polynom_sonda.max())
+            print(self.pokus)
+
+
+
+
+
+            # with open(self.name+"/konstant.txt", "r") as f:
+            #     hodnoty2 = f.read().splitlines()
+            # self.char_sondy = list(map(float, hodnoty2))
+            pi = np.pi
+            exp = np.exp
+            Km1 = 1.052082 / (2 * pi ** 2)
+            N = 1000
+            t = np.linspace(0, 155, num=3101)
+            one = 0
+            It_Opt = 0
+            for n in range(0, 1001):
+                two = -8 * exp(-pi ** 2 * Km1 * t * (2 * n + 1) ** 2 / 4) * (
+                            (1 / ((2 * n + 1) ** 2 * pi ** 2)) * (-pi ** 2 * Km1 * (2 * n + 1) ** 2 / 4))
+                clen = one + two
+                It_Opt = It_Opt + clen
+                one = two
+            self.char_sondy = []
+            for i in range(0, len(It_Opt)):
+                self.char_sondy.append(
+                    (It_Opt[i] - min(It_Opt)) / (max(It_Opt) - min(It_Opt)))
 
             # info do GUI
             self.info_for_user.appendPlainText("Data načtena z konstant.txt a namerene_hodnoty.txt\n")
@@ -155,37 +187,30 @@ class Hlavni(qtw.QMainWindow):
     def vypocet(self):
         self.start_time=time.time() # spustí se čas
         #zde se vola druhy py soubor s vypoctem a optimalizaci
-        self.vysledek = vypocet.Optimalizace(self.char_sondy,self.namerene).opt(self.radio_button_value)
+        self.vysledek = vypocet.opt(self.radio_button_value,self.char_sondy,self.namerene)
+
         self.end_time=time.time() #vypne se čas
         #upravy pro zjisteni jak dlouho vypocet trval
         self.elapsed_time=self.end_time-self.start_time
         self.info_for_user.appendPlainText(f"Čas výpočtu: {round(self.elapsed_time,2)} s\n")
         QtCore.QCoreApplication.processEvents()
-        #vypocet.Optimalizace(self.char_sondy,self.namerene).graph()
         self.kla = float(self.vysledek)
         self.info_for_user.appendPlainText(f"Hodnota kLa je: {round(self.kla,7)} s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE}\n")
         self.plotni_to()
         QMessageBox.information(self, " Vyhodnoceno",f"kLa je: {round(self.kla,5)} s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE}\n"
                                        f"Čas výpočtu: {round(self.elapsed_time,2)} s")
     def plotni_to(self):
-        tau = np.linspace(0, 100, num=1000)
-        self.model_values = np.exp(-self.kla * tau)
-        for i in range(0, len(self.model_values)):
-            self.model_valuesN.append(
-                (self.model_values[i] - max(self.model_values)) / (min(self.model_values) - max(self.model_values)))
+        tau = np.linspace(0, 155, num=3101)
 
-        for i in range(0, len(self.namerene)):
-            self.namereneN.append(
-                (self.namerene[i] - min(self.namerene)) / (max(self.namerene) - min(self.namerene)))
+        self.fig_ax.plot(tau[0:int(len(self.namerene)/2)],self.namerene[0:int(len(self.namerene)/2)])
+        self.fig_ax.plot(tau, self.namerene)
+        self.fig_ax.plot(tau,self.char_sondy)
 
-        self.fig_ax.plot(self.namereneN[0:int(len(self.namereneN)/2)])
-        self.fig_ax.plot(self.char_sondy)
-        self.fig_ax.plot(self.model_valuesN)
+
         self.fig_ax.set_xlabel("čas [s]")
         self.fig_ax.set_ylabel("x0\N{SUBSCRIPT TWO} normalizované")
         self.fig_ax.margins(x=0)
         self.fig_ax.legend(["naměřené hodnoty","impulzní charakteristika","teoretický průběh koncentrace"])
-
         self.canvas.draw()
         self.ulozeni_dat()
         # add toolbar
