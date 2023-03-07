@@ -120,6 +120,7 @@ class Hlavni(qtw.QMainWindow):
         if self.name == None:
             QMessageBox.warning(self,"Warning","Nebyla přidána složka s daty")
         else:
+
             # experimentalni data ze sondy, udelal jsem v excelu polynom, ktery je proklada
             x = np.linspace(0, 155, num=3101)
             self.polynom_sonda = -0.0002*x**2+0.3501*x+925.72

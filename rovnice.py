@@ -5,7 +5,7 @@ import numpy as np
 from scipy.integrate import odeint
 from scipy.interpolate import CubicSpline
 from scipy.signal import savgol_filter
-kla=0.001
+kla=0.00245
 rozpO2=1.396 # u Labika jako alfa
 rozpN2=0.6817
 temp_vsadky = 20
@@ -37,9 +37,9 @@ t = np.array(namerene[1622:1622+400])
 
 
 pG_ust1 = 748*133.3  #prvni hodnota na vstupu, zacatek experimentu v ***.dtm
-pG_ust2 = max(pGraw)+pG_ust1
+pG_ust2 = 14929+pG_ust1
 p1 = pGraw[0]
-p2 = max(pGraw)
+p2 = 14929#max(pGraw)
 
 def savitzky_golay_filter(data, window_size, order):
     return savgol_filter(data, window_size, order)

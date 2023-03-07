@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 from scipy.interpolate import CubicSpline
 from scipy.signal import savgol_filter
+
+
 def to_opt(kla,impulse,sonda):
 
     rozpO2 = 1.396  # u Labika jako alfa
@@ -25,6 +27,7 @@ def to_opt(kla,impulse,sonda):
     prutok_plynu_in = 6e-4
     zadrz_plynu = 0.0088
     deltaVg = V_kapalina * zadrz_plynu / (1 - zadrz_plynu)
+
     with open("C:/Users/Kevin/Desktop/example_data/namerene_hodnoty.dtm", "r") as f:
         hodnoty1 = f.read().splitlines()
     namerene = list(map(float, hodnoty1))
@@ -33,9 +36,9 @@ def to_opt(kla,impulse,sonda):
     t = np.array(namerene[1622:1622 + 400])
 
     pG_ust1 = 748 * 133.3  # prvni hodnota na vstupu, zacatek experimentu v ***.dtm
-    pG_ust2 = max(pGraw) + pG_ust1
+    pG_ust2 = 14929 + pG_ust1
     p1 = pGraw[0]
-    p2 = max(pGraw)
+    p2 = 14929
 
     def savitzky_golay_filter(data, window_size, order):
         return savgol_filter(data, window_size, order)
@@ -74,7 +77,6 @@ def to_opt(kla,impulse,sonda):
     xN2L_0 = 1
     S_0 = (xO2L_0, xN2L_0, xO2G_0)
 
-
     sol = odeint(dSdt, y0=S_0, t=t, tfirst=True)
 
     O2L = sol[:, 0]
@@ -82,9 +84,9 @@ def to_opt(kla,impulse,sonda):
     O2G = sol[:, 2]
 
     prubeh = (O2L - O2L.min()) / (O2L.max() - O2L.min())
-    #plt.plot(t,prubeh)
-    # plt.plot(t, impulse)
-    # plt.plot(t, sonda)
+
+    #TODO Hrátky s Impulse response
+
     # L = len(sonda)
     # N = len(impulse)
     #
@@ -100,9 +102,10 @@ def to_opt(kla,impulse,sonda):
     char_sondy_otocena = np.flip(impulse)
     char_sondy_uprav = np.concatenate((char_sondy_otocena[3101 - num_ones:3101], impulse))
     h_wrap = np.concatenate([char_sondy_uprav, np.zeros(200)])
-
+    #konvolucni integral
     con = np.convolve(prubeh, h_wrap)
-
+    #je 500 jednicek na zacatku takze musim zacinat od 1000 jelikoz mi to ta konvoluce cele
+    #zdvojnasobi
     mycon = con[1000:3101+1000]
 
     global conN
