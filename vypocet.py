@@ -85,17 +85,40 @@ def to_opt(kla,impulse,sonda):
     #plt.plot(t,prubeh)
     # plt.plot(t, impulse)
     # plt.plot(t, sonda)
+    # L = len(sonda)
+    # N = len(impulse)
+    #
+    # # Create wraparound version of impulse response
+    # h_wrap = np.zeros(L + N - 1)
+    # h_wrap[:N] = impulse
+    # h_wrap[N - 1:] = impulse[-1:-(L + N):-1]
 
-    plt.plot(t,(np.convolve(prubeh, impulse))[0:3101])
+    num_ones = int(500)
+    num_zeros = int(0)
+    prubeh = np.concatenate((np.ones(num_ones), prubeh))
+    prubeh = np.concatenate([prubeh, np.zeros(num_zeros)])
+    char_sondy_otocena = np.flip(impulse)
+    char_sondy_uprav = np.concatenate((char_sondy_otocena[3101 - num_ones:3101], impulse))
+    h_wrap = np.concatenate([char_sondy_uprav, np.zeros(200)])
+
+    con = np.convolve(prubeh, h_wrap)
+
+    mycon = con[1000:3101+1000]
+
+    global conN
+    conN = (mycon - mycon.min()) /( mycon.max() - mycon.min())
+
+    #plt.plot(t, conN)
     # plt.show()
-    return sum((np.convolve(prubeh, impulse)[0:3101] -sonda) ** 2)
+    return sum((conN -sonda) ** 2)
 
 
 
 def opt(choice,impulse,namerene):
-    x0=0.001
+    x0=0.0002
 
-    if choice == 1:
+
+    if choice == 1: # options={"maxiter":1,"disp": True}
         return scipy.optimize.minimize(to_opt, x0,args=(impulse,namerene), method ="Nelder-Mead").x
     elif choice == 2:
         return scipy.optimize.minimize(to_opt, x0,method ="BFGS").x

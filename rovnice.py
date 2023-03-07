@@ -5,7 +5,7 @@ import numpy as np
 from scipy.integrate import odeint
 from scipy.interpolate import CubicSpline
 from scipy.signal import savgol_filter
-kla=0.0052
+kla=0.001
 rozpO2=1.396 # u Labika jako alfa
 rozpN2=0.6817
 temp_vsadky = 20

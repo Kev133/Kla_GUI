@@ -140,39 +140,11 @@ class Hlavni(qtw.QMainWindow):
 
             self.pokus = []
             x = np.linspace(0, 155, num=3101)
-            def polynom(self,x):
-                polynome = 0.001 * x ** 2 + 0.6489 * x + 60.034
-                return polynome
-            self.polynom_sonda = polynom(self,x)
-            print(self.polynom_sonda)
+            self.polynom_sonda = -0.0002*x**2+0.3501*x+925.72
 
+            #1061.74
             self.namerene = (self.polynom_sonda - self.polynom_sonda.max()) /( self.polynom_sonda.min() - self.polynom_sonda.max())
-            print(self.pokus)
 
-
-
-
-
-            # with open(self.name+"/konstant.txt", "r") as f:
-            #     hodnoty2 = f.read().splitlines()
-            # self.char_sondy = list(map(float, hodnoty2))
-            pi = np.pi
-            exp = np.exp
-            Km1 = 1.052082 / (2 * pi ** 2)
-            N = 1000
-            t = np.linspace(0, 155, num=3101)
-            one = 0
-            It_Opt = 0
-            for n in range(0, 1001):
-                two = -8 * exp(-pi ** 2 * Km1 * t * (2 * n + 1) ** 2 / 4) * (
-                            (1 / ((2 * n + 1) ** 2 * pi ** 2)) * (-pi ** 2 * Km1 * (2 * n + 1) ** 2 / 4))
-                clen = one + two
-                It_Opt = It_Opt + clen
-                one = two
-            self.char_sondy = []
-            for i in range(0, len(It_Opt)):
-                self.char_sondy.append(
-                    (It_Opt[i] - min(It_Opt)) / (max(It_Opt) - min(It_Opt)))
 
             # info do GUI
             self.info_for_user.appendPlainText("Data načtena z konstant.txt a namerene_hodnoty.txt\n")
@@ -183,10 +155,30 @@ class Hlavni(qtw.QMainWindow):
             except Exception as e:
                 print(str(e))
                 self.info_for_user.appendPlainText("V této složce nejsou vhodné soubory pro výpočet.\nZvolte správnou složku.")
+    def impulzovka(self):
+        pi = np.pi
+        exp = np.exp
+        Km1 = 1.052082 / (2 * pi ** 2)
+        N = 1000
+        t = np.linspace(0, 155, num=3101)
+        one = 0
+        It_Opt = 0
+        for n in range(0, 1001):
+            two = -8 * exp(-pi ** 2 * Km1 * t * (2 * n + 1) ** 2 / 4) * (
+                    (1 / ((2 * n + 1) ** 2 * pi ** 2)) * (-pi ** 2 * Km1 * (2 * n + 1) ** 2 / 4))
+            clen = one + two
+            It_Opt = It_Opt + clen
+            one = two
+        self.char_sondy = []
+        for i in range(0, len(It_Opt)):
+            self.char_sondy.append(
+                (It_Opt[i] - min(It_Opt)) / (max(It_Opt) - min(It_Opt)))
 
     def vypocet(self):
+        print("spusteno")
         self.start_time=time.time() # spustí se čas
         #zde se vola druhy py soubor s vypoctem a optimalizaci
+        self.impulzovka()
         self.vysledek = vypocet.opt(self.radio_button_value,self.char_sondy,self.namerene)
 
         self.end_time=time.time() #vypne se čas
@@ -201,11 +193,12 @@ class Hlavni(qtw.QMainWindow):
                                        f"Čas výpočtu: {round(self.elapsed_time,2)} s")
     def plotni_to(self):
         tau = np.linspace(0, 155, num=3101)
-
-        self.fig_ax.plot(tau[0:int(len(self.namerene)/2)],self.namerene[0:int(len(self.namerene)/2)])
+        from vypocet import conN
+        self.model_konv = conN
+        #self.fig_ax.plot(tau[0:int(len(self.namerene)/2)],self.namerene[0:int(len(self.namerene)/2)])
         self.fig_ax.plot(tau, self.namerene)
         self.fig_ax.plot(tau,self.char_sondy)
-
+        self.fig_ax.plot(tau,self.model_konv)
 
         self.fig_ax.set_xlabel("čas [s]")
         self.fig_ax.set_ylabel("x0\N{SUBSCRIPT TWO} normalizované")
