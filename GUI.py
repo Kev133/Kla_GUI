@@ -29,7 +29,6 @@ class Hlavni(qtw.QMainWindow):
 
     def init_ui(self):
         # graficke veci
-        #TODO zmenit celkovy vzhled programu aby vypadal moderneji a intiutivně (hlavne asi font a nejake rozlozeni)
 
         self.setWindowTitle("  Vyhodnocení dat z kyslíkové sondy")
         self.setFont(qtg.QFont("Arial",11))
@@ -107,20 +106,10 @@ class Hlavni(qtw.QMainWindow):
 
     def pruzkum(self):
         name = QFileDialog.getExistingDirectory(self)
+        # if name is not empty, which means the user picked a directory, the below code will execute
         if name:
             self.name = name
             self.info_for_user.appendPlainText("Data pro výpočet jsou v souboru\n"+name+"\n")
-
-
-    def help_okno(self):
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Help")
-        dlg.setGeometry(300,300,600,200)
-        dlg.exec_()
-        #TODO napsat do help okna nejakej text vysvetlujici co program dela
-        # a co ma delat uzivatel (nahraj soubory konstant,paramy atd do jedne slozky,
-        # tu najdi v adresari a spust vypocet) neco takoveho (jako "readme" u matlab prog)
-        # Hlavne to nejak napsat pres QPlainTextEdit
 
 
     def nacteni_dat(self):
@@ -131,31 +120,28 @@ class Hlavni(qtw.QMainWindow):
         if self.name == None:
             QMessageBox.warning(self,"Warning","Nebyla přidána složka s daty")
         else:
-
-            #nacteni dat v souboru namerene_hodnoty
-            # with open(self.name+"/namerene_hodnoty.txt", "r") as f:
-            #     hodnoty1 = f.read().splitlines()
-            # self.namerene = list(map(float, hodnoty1))
-            # print(self.name)
-
-            self.pokus = []
+            # experimentalni data ze sondy, udelal jsem v excelu polynom, ktery je proklada
             x = np.linspace(0, 155, num=3101)
             self.polynom_sonda = -0.0002*x**2+0.3501*x+925.72
-
-            #1061.74
+            #normalizace experimentalnich dat
             self.namerene = (self.polynom_sonda - self.polynom_sonda.max()) /( self.polynom_sonda.min() - self.polynom_sonda.max())
 
 
             # info do GUI
             self.info_for_user.appendPlainText("Data načtena z konstant.txt a namerene_hodnoty.txt\n")
             QtCore.QCoreApplication.processEvents()
-            try:    # kdyz jsou data nactena, spusti se funkce vypocet
+            try:
+                # kdyz jsou data nactena, spusti se funkce vypocet
                 self.vypocet()
 
             except Exception as e:
+                #toto mi říká reálně všechny errory v programu, ne jen v části načtení dat
                 print(str(e))
                 self.info_for_user.appendPlainText("V této složce nejsou vhodné soubory pro výpočet.\nZvolte správnou složku.")
+
     def impulzovka(self):
+        # funkce, která vypočítá impulzní charakteristiku pro danou sondu, v tomto případě optickou
+        # problém s 2*pi
         pi = np.pi
         exp = np.exp
         Km1 = 1.052082 / (2 * pi ** 2)
@@ -163,27 +149,31 @@ class Hlavni(qtw.QMainWindow):
         t = np.linspace(0, 155, num=3101)
         one = 0
         It_Opt = 0
+        #for loop na napocitani impulzni charakterstiky
         for n in range(0, 1001):
             two = -8 * exp(-pi ** 2 * Km1 * t * (2 * n + 1) ** 2 / 4) * (
                     (1 / ((2 * n + 1) ** 2 * pi ** 2)) * (-pi ** 2 * Km1 * (2 * n + 1) ** 2 / 4))
             clen = one + two
             It_Opt = It_Opt + clen
             one = two
-        self.char_sondy = []
-        for i in range(0, len(It_Opt)):
-            self.char_sondy.append(
-                (It_Opt[i] - min(It_Opt)) / (max(It_Opt) - min(It_Opt)))
+
+        self.char_sondy = (It_Opt - It_Opt.min()) / (It_Opt.max() - It_Opt.min())
+
 
     def vypocet(self):
-        print("spusteno")
+        #chtelo by to redesign tyhle funkce, je tu namichano graficky a vypocetni veci
+        print("spustena funkce vypocet")
         self.start_time=time.time() # spustí se čas
-        #zde se vola druhy py soubor s vypoctem a optimalizaci
+        # impulzovka se vola abych mohl pak pouzit self.char_sondy
         self.impulzovka()
+        #zde se vola druhy py soubor s vypoctem a optimalizaci
         self.vysledek = vypocet.opt(self.radio_button_value,self.char_sondy,self.namerene)
 
         self.end_time=time.time() #vypne se čas
         #upravy pro zjisteni jak dlouho vypocet trval
         self.elapsed_time=self.end_time-self.start_time
+
+        #graficke veci, ktere asi ve vypoctu ani nemusi byt
         self.info_for_user.appendPlainText(f"Čas výpočtu: {round(self.elapsed_time,2)} s\n")
         QtCore.QCoreApplication.processEvents()
         self.kla = float(self.vysledek)
@@ -193,9 +183,12 @@ class Hlavni(qtw.QMainWindow):
                                        f"Čas výpočtu: {round(self.elapsed_time,2)} s")
     def plotni_to(self):
         tau = np.linspace(0, 155, num=3101)
+        # TODO: dotaz!
+        #je dulezite to mit pod self.model_konv?
+        #musim u všeho dávat self? U ceho bych nemusel, viz Impulzovka
         from vypocet import conN
         self.model_konv = conN
-        #self.fig_ax.plot(tau[0:int(len(self.namerene)/2)],self.namerene[0:int(len(self.namerene)/2)])
+
         self.fig_ax.plot(tau, self.namerene)
         self.fig_ax.plot(tau,self.char_sondy)
         self.fig_ax.plot(tau,self.model_konv)

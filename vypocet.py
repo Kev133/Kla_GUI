@@ -115,7 +115,7 @@ def to_opt(kla,impulse,sonda):
 
 
 def opt(choice,impulse,namerene):
-    x0=0.0002
+    x0=0.002
 
 
     if choice == 1: # options={"maxiter":1,"disp": True}
