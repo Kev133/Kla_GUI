@@ -187,6 +187,7 @@ class Hlavni(qtw.QMainWindow):
         # TODO: dotaz!
         #je dulezite to mit pod self.model_konv?
         #musim u všeho dávat self? U ceho bych nemusel, viz Impulzovka
+        #nahradit pridanim do zavorky k fci plotni to
         from vypocet import conN
         self.model_konv = conN
 

@@ -5,7 +5,23 @@ import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 from scipy.interpolate import CubicSpline
 from scipy.signal import savgol_filter
+def load_data():
+    with open("namerene_hodnoty.dtm", "r") as f:
+        hodnoty1 = f.read().splitlines()
+    namerene = list(map(float, hodnoty1))
+    pGraw = np.array(namerene[16:416])
 
+    with open("konstant.DTA", "r") as f:
+        hodnoty1 = f.read().splitlines()
+    namerene = list(map(float, hodnoty1))
+
+
+    t = np.array(namerene[1622:1622 + 400])
+
+    pG_ust1 = 748 * 133.3  # prvni hodnota na vstupu, zacatek experimentu v ***.dtm
+    pG_ust2 = 14929 + pG_ust1
+    p1 = pGraw[0]
+    p2 = 14929
 
 def to_opt(kla,impulse,sonda):
 
@@ -28,7 +44,7 @@ def to_opt(kla,impulse,sonda):
     zadrz_plynu = 0.0088
     deltaVg = V_kapalina * zadrz_plynu / (1 - zadrz_plynu)
 
-    with open("C:/Users/Kevin/Desktop/example_data/namerene_hodnoty.dtm", "r") as f:
+    with open("namerene_hodnoty.dtm", "r") as f:
         hodnoty1 = f.read().splitlines()
     namerene = list(map(float, hodnoty1))
     pGraw = np.array(namerene[16:416])
@@ -85,7 +101,7 @@ def to_opt(kla,impulse,sonda):
 
     prubeh = (O2L - O2L.min()) / (O2L.max() - O2L.min())
 
-    #TODO Hrátky s Impulse response
+
 
     # L = len(sonda)
     # N = len(impulse)

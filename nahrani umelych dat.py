@@ -7,7 +7,7 @@ import numpy as np
 measured_valuesN = []
 real_valuesN = []
 guessN = []
-impulse_responseN=[];
+impulse_responseN=[]
 # zavedeni promenne tau
 tau = np.linspace(0, 15, num=400)
 # nastrel x0 pro optimalizaci

@@ -244,9 +244,13 @@ def to_opt(kla):
     O2L = sol[:, 0]
     N2L = sol[:, 1]
     O2G = sol[:, 2]
+    neco = O2L,N2L,O2G
+    nene=dSdt(t,neco)
+    DX = nene[0:1100]
+
     cs_x = CubicSpline(np.linspace(0,t.max(),num=len(der_x)),der_x)
     # plt.plot(t,data)
-    # plt.plot(time_for_der,der_x)
+    #plt.plot(time_for_der,der_x)
     # plt.show()
     # plt.plot(t,O2L)
     # plt.plot(t,N2L)
@@ -259,41 +263,54 @@ def to_opt(kla):
     # plt.plot(t,It)
     # plt.show()
     model_profile = cs_x(t)
-    G1 = np.zeros(len(t))
+
+
     time_data_for_compare = time_data_inc[index:]
-    time_for_der = np.linspace(0, t.max(), num=len(der_x))
-    der_O2L_pol = np.polyfit(time_for_der, der_x, 8)
-    der_O2L = np.polyval(der_O2L_pol,t)
+    G1 = np.zeros(len(time_data_for_compare))
+
+
 
     vector = np.zeros((len(t), len(time_data_for_compare)))
 
     for k in range(1,len(time_data_for_compare),1):
 
         i = np.where(t>=time_data_for_compare[k])[0].min()
+        if i == 0:
+            G1[k] =0
+        else:
+            # print(i)
 
-        vector[0:i,k] = der_O2L[0:i]* np.flip(Ht)[0:i]
+            vector[0:i,k] = DX[0:i]* np.flip(Ht[0:i])
+            # print(der_O2L[0:i])
+            # print(np.flip(Ht[0:i]))
+            #print(vector[0:i,k])
 
-        G1[k] = simps(t[0:i],vector[0:i,k])
-        print(i)
-    plt.plot(t,G1)
+            G1[k] = simps(t[0:i],vector[0:i,k])
+            #print(G1[k])
+            #print("hah")
+
+
     np.set_printoptions(threshold=np.inf)
-    print(vector.view())
-    plt.show()
+    #print(vector.view())
+
+
     probe_dataN = (np.array(probe_data_inc) - steady_probe_2) / (steady_probe_1 - steady_probe_2)
 
-
-    # plt.plot(time_data_inc[index:],probe_profile,label ="Probe profile")
-    # plt.plot(t,O2L,label = "model profile")
-    # plt.plot(time_data_inc, probe_dataN,"ro",markersize=1,label = "Probe data")
-    # plt.legend()
-    # plt.show()
+    G2=1-G1
+    plt.plot(time_data_for_compare, G2,label="konvoluce")
+    plt.plot(time_data_inc[index:],probe_profile,label ="Probe profile")
+    plt.plot(t,O2L,label = "model profile")
+    plt.plot(time_data_inc, probe_dataN,"ro",markersize=1,label = "Probe data")
+    plt.legend()
+    plt.show()
     # TODO jak return vic hodnot??
-    return sum((der_O2L - Ht) ** 2), O2L, G1
+
+    return sum((G2 - probe_profile) ** 2)
 
 
 
 def opt(choice):
-    x0=0.025
+    x0=0.033
 
 
     if choice == 1: # options={"maxiter":1,"disp": True}
@@ -307,6 +324,5 @@ def opt(choice):
 
 
 opt(1)
-
 if __name__=="__main__":
     pass

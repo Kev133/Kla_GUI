@@ -5,7 +5,7 @@ import numpy as np
 from scipy.integrate import odeint
 from scipy.interpolate import CubicSpline
 from scipy.signal import savgol_filter
-kla=0.00245
+kla=0.008
 rozpO2=1.396 # u Labika jako alfa
 rozpN2=0.6817
 temp_vsadky = 20
@@ -74,6 +74,8 @@ def dSdt(t,S):
             dxN2L,
             dxO2G])
 # počáteční podmínky
+print(pG_ust2)
+print(pG_ust1)
 xO2L_0 = 1
 xO2G_0 = 1
 xN2L_0 = 1
@@ -90,5 +92,6 @@ print(O2L)
 plt.plot(t,O2L,label = "O2L")
 plt.plot(t,N2L,label = "N2L")
 plt.plot(t,O2G,label = "O2G")
+
 plt.legend()
 plt.show()
