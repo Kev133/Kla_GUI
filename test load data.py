@@ -212,7 +212,6 @@ def to_opt(kla):
         # print('mN2 =', mN2)
         # print('dVG =', dVG)
         # print('dxO2G =', dxO2G)
-        der_x.append(dxO2L[0])
 
         return np.array([dxO2L,
                  dxN2L,
