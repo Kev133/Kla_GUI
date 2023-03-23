@@ -12,6 +12,12 @@ from scipy.signal import savgol_filter
 import matplotlib.pyplot as plt
 pi= np.pi
 exp = np.exp
+
+#Console output interface
+plot_choice = int(input("Do you want to plot the profiles every iteration? If yes, type 1. If no, type 0.\n"))
+experiment = int(input("Which experiment to evaluate? Type numbers from 0 to 5.\n"))
+x0 = float(input("What should the initial kLa estimate be for experiment " + str(experiment) + " ?\n"))
+
 def custom_float(value):
     try:
         return float(value)
@@ -39,14 +45,12 @@ values = []
 
 for line in konstant[5:]:
     values.append(tuple(map(float, line.split())))
-#TODO in the first [], put the number of he experiment you want to evaluate -1,
-# this example is for the 1LT16A experiment
-gas_in2, h, gas_hold_up, agitator_power = values[5][0:4]
+
+gas_in2, h, gas_hold_up, agitator_power = values[experiment][0:4]
 
 gas_in2 = gas_in2/1000/60
 # loading data from xxxx.dtm, have to add [0] because it returns a list
-# TODO here in the [] brackets, put the number of the experiment you want to evaluate,-1
-dtm_file = glob.glob("*.dtm")[5]
+dtm_file = glob.glob("*.dtm")[experiment]
 print(dtm_file)
 with open(dtm_file, "r") as f:
     exp_profiles = f.read().splitlines()
@@ -115,9 +119,9 @@ C = 233.426
 pH2O = 10 ** (A + B / (temp + C)) * 101325 / 760
 
 print("Does the gas input in konst.dta equal xxx.dtm? " + str(gas_in2 == gas_in))
-time_points = 1100
+time_points = 2000
 t = np.linspace(0, max(time_data_inc), num=time_points)
-def probe_polynomial():
+def probe_function():
     probe_interpol=np.interp(time_data_inc[index:],time_data_inc,probe_dataN)
     # probe_data_inc_N = (np.array(probe_data_inc)-steady_probe_2)/(steady_probe_1-steady_probe_2)
     # x = time_data_inc
@@ -130,35 +134,21 @@ def probe_polynomial():
     return probe_interpol
 def impulse_response():
 
-
     n = np.linspace(0, 1000, num=1001)
 
     It_Opt = np.zeros_like(t)  # create an array to store the results
     Ht_Opt = np.zeros_like(t)
+
     for i, ti in enumerate(t):
         It_Opt[i] = np.sum(-8 * exp(-pi ** 2 * Km1 * ti * ((2 * n + 1) ** 2) / 4) * (
                     (1 / ((2 * n + 1) ** 2 * pi ** 2)) * ((-pi ** 2 * Km1 * (2 * n + 1) ** 2) / 4)))
     for i,ti in enumerate(t):
         Ht_Opt [i] = np.sum (1-8*exp(-pi**2*Km1*ti*(2*n+1)**2/4)*(1/(2*n+1)**2*pi**2))
+
     Ht_Opt_N = (Ht_Opt - Ht_Opt.min()) / (Ht_Opt.max() - Ht_Opt.min())
+    It_Opt_N =  (It_Opt - It_Opt.min()) / (It_Opt.max() - It_Opt.min())
+    return Ht_Opt_N
 
-    return Ht_Opt_N#(It_Opt - It_Opt.min()) / (It_Opt.max() - It_Opt.min())
-
-def edit_profiles_for_convolution(model_profile):
-    global num_ones
-    global num_zeros
-    num_ones = int(500)
-    num_zeros = int(0)
-    model_profile = np.concatenate((np.zeros(num_ones), model_profile))
-    model_profile_edited = np.concatenate([model_profile, np.zeros(num_zeros)])
-    #It_flipped = np.flip(It)
-    It_edited = np.concatenate([np.zeros(num_ones), Ht])
-
-    # plt.plot(np.linspace(0,max(t),num = 3101+500),It_edited)
-    # plt.plot(np.linspace(0, max(t), num=3101+500), model_profile_edited)
-    #
-    # plt.show()
-    return model_profile_edited,It_edited
 
 def spline_pG():
     #TODO figure out what spline and filter to use so the data starts at 1
@@ -169,20 +159,17 @@ def spline_pG():
     xG = savitzky_golay_filter(xG, window_size=8, order=2)
 
     return CubicSpline(time_data_inc, xG)
+# this line helps determine what index will be used for the start of the comparing times
 index=np.where(probe_dataN>=upper_limit)[0].max()+1
+
+#print(time_data_inc[index]), from this time the comparisons will start
 time_data_for_compare = time_data_inc[index:]
 cs =spline_pG()
 Ht = impulse_response()
-probe_profile = probe_polynomial()
-
-# this line helps determine what index will be used for the start of the comparing times
-
-#print(time_data_inc[index]), from this time the comparisons will start
+probe_profile = probe_function()
 
 
 def to_opt(kla):
-    global der_x
-    der_x = []
     p1 = steady_pG_1 + pG_atm
     p2 = steady_pG_2 + pG_atm
 
@@ -212,7 +199,6 @@ def to_opt(kla):
         # print('dxN2L =', dxN2L)
         # print('difN2 =', difN2)
         # print('difO2 =', difO2)
-        #
         #print('t =', t)
         # print('y =', y)
         # print('xN2L =', xN2L)
@@ -244,74 +230,49 @@ def to_opt(kla):
     O2L = sol[:, 0]
     N2L = sol[:, 1]
     O2G = sol[:, 2]
-    neco = O2L,N2L,O2G
-    nene=dSdt(t,neco)
-    DX = nene[0:1100]
+    # We have obtained the oxygen concentration profiles and now are sending them back to obtain their derivates
+    # mainly dxO2L
+    S_again = O2L,N2L,O2G
+    dx_concentrations=dSdt(t,S_again)
+    dxO2L = dx_concentrations[0:len(t)]
 
-    cs_x = CubicSpline(np.linspace(0,t.max(),num=len(der_x)),der_x)
-    # plt.plot(t,data)
-    #plt.plot(time_for_der,der_x)
-    # plt.show()
     # plt.plot(t,O2L)
     # plt.plot(t,N2L)
     # plt.plot(t,O2G)
     #
     # plt.legend(["O2L","N2L","O2G"])
     # plt.show()
-    # plt.plot(t,O2L)
-    # plt.plot(t,cs_x(t))
-    # plt.plot(t,It)
-    # plt.show()
-    model_profile = cs_x(t)
 
 
     time_data_for_compare = time_data_inc[index:]
     G1 = np.zeros(len(time_data_for_compare))
-
-
-
     vector = np.zeros((len(t), len(time_data_for_compare)))
-
+    #Convolution integral
     for k in range(1,len(time_data_for_compare),1):
 
         i = np.where(t>=time_data_for_compare[k])[0].min()
-        if i == 0:
-            G1[k] =0
-        else:
-            # print(i)
 
-            vector[0:i,k] = DX[0:i]* np.flip(Ht[0:i])
-            # print(der_O2L[0:i])
-            # print(np.flip(Ht[0:i]))
-            #print(vector[0:i,k])
+        vector[0:i,k] = dxO2L[0:i]* np.flip(Ht[0:i])
 
-            G1[k] = simps(t[0:i],vector[0:i,k])
-            #print(G1[k])
-            #print("hah")
-
-
-    np.set_printoptions(threshold=np.inf)
-    #print(vector.view())
-
+        G1[k] = simps(t[0:i],vector[0:i,k])
 
     probe_dataN = (np.array(probe_data_inc) - steady_probe_2) / (steady_probe_1 - steady_probe_2)
 
     G2=1-G1
-    plt.plot(time_data_for_compare, G2,label="konvoluce")
-    plt.plot(time_data_inc[index:],probe_profile,label ="Probe profile")
-    plt.plot(t,O2L,label = "model profile")
-    plt.plot(time_data_inc, probe_dataN,"ro",markersize=1,label = "Probe data")
-    plt.legend()
-    plt.show()
+    if plot_choice ==1:
+        plt.plot(time_data_for_compare, G2,label="konvoluce")
+        plt.plot(time_data_inc[index:],probe_profile,label ="Probe profile",linewidth =0.8)
+        plt.plot(t,O2L,label = "model profile")
+        plt.plot(time_data_inc, probe_dataN,"ro",markersize=1,label = "Probe data")
+        plt.legend()
+        plt.show()
     # TODO jak return vic hodnot??
-
+    #print (sum((G2 - probe_profile) ** 2))
     return sum((G2 - probe_profile) ** 2)
 
 
 
 def opt(choice):
-    x0=0.033
-
 
     if choice == 1: # options={"maxiter":1,"disp": True}
         return scipy.optimize.minimize(to_opt, x0, method ="Nelder-Mead").x
