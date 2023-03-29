@@ -171,19 +171,26 @@ for i in range (0,18):
     # this line helps determine what index will be used for the start of the comparing times
     index=np.where(probe_dataN>=upper_limit)[0].max()+1
 
+
     #print(time_data_inc[index]), from this time the comparisons will start
     time_data_for_compare = time_data_inc[index:]
     cs =spline_pG()
     Ht = impulse_response()
     probe_profile = probe_function()
 
+    index_t2=np.where(probe_dataN>=0.75)[0].max()
+    index_t1=np.where(probe_dataN>=0.4)[0].max()
+
+    kla_estimate = np.log(probe_dataN[index_t2]/probe_dataN[index_t1])/(time_data_inc[index_t1]-time_data_inc[index_t2])
+    #print(probe_dataN[index_t2],probe_dataN[index_t1])
+    #print(time_data_inc[index_t2],time_data_inc[index_t1])
+    print(f"nástřel kla je {kla_estimate}")
 
     def to_opt(kla):
         p1 = steady_pG_1 + pG_atm
         p2 = steady_pG_2 + pG_atm
 
         #print(kla)
-
 
         def dSdt(t, S):
 
@@ -283,11 +290,11 @@ for i in range (0,18):
     def opt(choice):
 
         if choice == 1: # options={"maxiter":1,"disp": True}
-            return scipy.optimize.minimize(to_opt, x0, method ="Nelder-Mead",tol=1e-5).x
+            return scipy.optimize.minimize(to_opt, kla_estimate, method ="Nelder-Mead",tol=1e-6).x
         elif choice == 2:
-            return scipy.optimize.minimize(to_opt, x0,method ="BFGS").x
+            return scipy.optimize.minimize(to_opt, kla_estimate,method ="BFGS").x
         elif choice == 3:
-            return scipy.optimize.minimize(to_opt, x0,method ="Powell").x
+            return scipy.optimize.minimize(to_opt,kla_estimate,method ="Powell").x
         else:
             print(choice)
 
