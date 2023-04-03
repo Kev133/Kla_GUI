@@ -3,11 +3,12 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
 import numpy as np
 from PyQt5 import QtCore
+import glob
 import PyQt5.QtGui as qtg
 from PyQt5.QtWidgets import QWidget, QLabel, QFileDialog, QPushButton, QDialog,QFontDialog,QStyle,\
-    QPlainTextEdit,QMessageBox,QApplication,QRadioButton,QHBoxLayout,QGroupBox,QVBoxLayout
+    QPlainTextEdit,QMessageBox,QApplication,QRadioButton,QHBoxLayout,QGroupBox,QVBoxLayout, QTableWidget,QTableWidgetItem
 import sys
-import vypocet
+
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -51,7 +52,7 @@ class Hlavni(qtw.QMainWindow):
 
         self.button2 = QPushButton("Provést výpočet", self)
         self.button2.setGeometry(430, 65, 130, 40)
-        self.button2.clicked.connect(self.nacteni_dat)
+        self.button2.clicked.connect(self.evaluate)
 
         #radiobutton
         self.group_box = QGroupBox(self)
@@ -63,7 +64,7 @@ class Hlavni(qtw.QMainWindow):
         self.hbox_layout = QHBoxLayout ()
 
         self.opt_min1 = QRadioButton("Nelder-Mead  ",self)
-        self.opt_min2 = QRadioButton("BFGS",self)
+        self.opt_min2 = QRadioButton("COBYLA",self)
         self.opt_min3 = QRadioButton("Powell",self)
         self.opt_min1.setChecked(True)
 
@@ -78,18 +79,21 @@ class Hlavni(qtw.QMainWindow):
         self.group_box.setLayout(self.hbox_layout)
         self.group_box.setFont(qtg.QFont("Arial", 11))
 
-        self.info_for_user = QPlainTextEdit("Vítejte v programu na výpočet kLa.\n\n\n", self)
+        self.info_for_user = QPlainTextEdit("Welcome, this program calculates kla from experimental data.\n\n", self)
         self.info_for_user.setGeometry(580, 20, 270, 440)
         self.info_for_user.setReadOnly(True)
 
-
+        self.table = QTableWidget(self)
+        self.table.setGeometry(20, 130, 530, 330)
+        self.table.setRowCount(18)
+        self.table.setColumnCount(4)
         #zavede cistou canvas pro graf
-        self.figure = plt.figure()
-        self.canvas = FigureCanvas(self.figure)
-        self.canvas.setParent(self)
-        self.canvas.setGeometry(20, 120, 550, 340)
-        self.fig_ax = self.figure.add_subplot(111)
-        self.figure.set_tight_layout(True)
+        # self.figure = plt.figure()
+        # self.canvas = FigureCanvas(self.figure)
+        # self.canvas.setParent(self)
+        # self.canvas.setGeometry(20, 120, 550, 340)
+        # self.fig_ax = self.figure.add_subplot(111)
+        # self.figure.set_tight_layout(True)
 
         self.radio_button_value = 1
 
@@ -109,87 +113,82 @@ class Hlavni(qtw.QMainWindow):
         # if name is not empty, which means the user picked a directory, the below code will execute
         if name:
             self.name = name
-            self.info_for_user.appendPlainText("Data pro výpočet jsou v souboru\n"+name+"\n")
+            self.info_for_user.appendPlainText("The necessary files are in the folder\n\n"+name+"\n")
 
 
-    def nacteni_dat(self):
-        """
-        Tato funkce nahraje data do objektů namerene a char_sondy
-
-        """
-        if self.name == None:
-            QMessageBox.warning(self,"Warning","Nebyla přidána složka s daty")
-        else:
-
-            # experimentalni data ze sondy, udelal jsem v excelu polynom, ktery je proklada
-            x = np.linspace(0, 155, num=3101)
-            self.polynom_sonda = -0.0002*x**2+0.3501*x+925.72
-            #normalizace experimentalnich dat
-            self.namerene = (self.polynom_sonda - self.polynom_sonda.max()) /( self.polynom_sonda.min() - self.polynom_sonda.max())
-
-
-            # info do GUI
-            self.info_for_user.appendPlainText("Data načtena z konstant.txt a namerene_hodnoty.txt\n")
+            self.dtm_files = glob.glob(self.name + "/*.dtm")
+            self.info_for_user.appendPlainText(f"There are {len(self.dtm_files)} .dtm files in this folder and ")
+            self.dta_files = glob.glob(self.name+"/*.DTA")
+            konstant=None
+            for file in self.dta_files:
+                if "konstant" in file.lower():  # tries to find a file that has "konstant" or "KONSTANT" in its name
+                    konstant = file  # after the file is found, it is called konstant
+                    self.info_for_user.appendPlainText(f"konstant.dta is also present.")
+                    break
+            if not konstant:
+                self.info_for_user.appendPlainText(f"konstant.dta is NOT present.")
             QtCore.QCoreApplication.processEvents()
-            try:
-                # kdyz jsou data nactena, spusti se funkce vypocet
-                self.vypocet()
-
-            except Exception as e:
-                #toto mi říká reálně všechny errory v programu, ne jen v části načtení dat
-                print(str(e))
-                self.info_for_user.appendPlainText("V této složce nejsou vhodné soubory pro výpočet.\nZvolte správnou složku.")
-
-    def impulzovka(self):
-        # funkce, která vypočítá impulzní charakteristiku pro danou sondu, v tomto případě optickou
-        # problém s 2*pi
-        pi = np.pi
-        exp = np.exp
-        Km1 = 1.052082 / (2 * pi ** 2)
-        N = 1000
-        t = np.linspace(0, 155, num=3101)
-        one = 0
-        It_Opt = 0
-        #for loop na napocitani impulzni charakterstiky
-        for n in range(0, 1001):
-            two = -8 * exp(-pi ** 2 * Km1 * t * (2 * n + 1) ** 2 / 4) * (
-                    (1 / ((2 * n + 1) ** 2 * pi ** 2)) * (-pi ** 2 * Km1 * (2 * n + 1) ** 2 / 4))
-            clen = one + two
-            It_Opt = It_Opt + clen
-            one = two
-
-        self.char_sondy = (It_Opt - It_Opt.min()) / (It_Opt.max() - It_Opt.min())
+        # except Exception as e:
+        # #toto mi říká reálně všechny errory v programu, ne jen v části načtení dat
+        #     print(str(e))
+        #     self.info_for_user.appendPlainText("V této složce nejsou vhodné soubory pro výpočet.\nZvolte správnou složku.")
 
 
-    def vypocet(self):
-        #chtelo by to redesign tyhle funkce, je tu namichano graficky a vypocetni veci
-        print("spustena funkce vypocet")
+    def evaluate(self):
+        if len(self.dtm_files)==0:
+            QMessageBox.warning(self, "Warning", "There are no .dtm files in this folder")
+        if self.name == None:
+            QMessageBox.warning(self,"Warning","A file directory has not been added")
+
+        print("Evaluation of kla has started")
         self.start_time=time.time() # spustí se čas
-        # impulzovka se vola abych mohl pak pouzit self.char_sondy
-        self.impulzovka()
+
         #zde se vola druhy py soubor s vypoctem a optimalizaci
-        self.vysledek = vypocet.opt(self.radio_button_value,self.char_sondy,self.namerene)
+        import kla_evalueator
+        kla_list = []
+        rows_excel = []
+        try:
+            for i in range (0,len(self.dtm_files)):
+                kla = [0]
+
+                data = kla_evalueator.main_function(i,self.name,self.radio_button_value)
+                kla[0]=data[0]
+
+                measurement_name = data[1]
+                self.info_for_user.appendPlainText(measurement_name)
+                self.info_for_user.appendPlainText(f"Found kla {round(kla[0],6)}")
+                QtCore.QCoreApplication.processEvents()
+                rows_excel.append(measurement_name)
+                kla_list.append(kla)
+
+            self.ulozeni_dat(kla_list,rows_excel)
+            self.update_GUI_table(kla_list,rows_excel)
+            print(rows_excel)
+        except Exception as e:
+            print(str(e))
+        #kla = [0]
+        #kla[0] = kla_evalueator.opt(1)[0]
+        #print(kla[0])
+
 
         self.end_time=time.time() #vypne se čas
         #upravy pro zjisteni jak dlouho vypocet trval
         self.elapsed_time=self.end_time-self.start_time
 
-        #graficke veci, ktere asi ve vypoctu ani nemusi byt
-        self.info_for_user.appendPlainText(f"Čas výpočtu: {round(self.elapsed_time,2)} s\n")
-        QtCore.QCoreApplication.processEvents()
-        self.kla = float(self.vysledek)
-        self.info_for_user.appendPlainText(f"Hodnota kLa je: {round(self.kla,7)} s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE}\n")
-        self.plotni_to()
-        QMessageBox.information(self, " Vyhodnoceno",f"kLa je: {round(self.kla,5)} s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE}\n"
-                                       f"Čas výpočtu: {round(self.elapsed_time,2)} s")
+        # #graficke veci, ktere asi ve vypoctu ani nemusi byt
+        # self.info_for_user.appendPlainText(f"Čas výpočtu: {round(self.elapsed_time,2)} s\n")
+        # QtCore.QCoreApplication.processEvents()
+        #
+        # #self.info_for_user.appendPlainText(f"Hodnota kLa je: {round(self.kla,7)} s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE}\n")
+        # #self.plotni_to()
+        # QMessageBox.information(self,f"Čas výpočtu: {round(self.elapsed_time,2)} s")
     def plotni_to(self):
         tau = np.linspace(0, 155, num=3101)
         # TODO: dotaz!
         #je dulezite to mit pod self.model_konv?
         #musim u všeho dávat self? U ceho bych nemusel, viz Impulzovka
         #nahradit pridanim do zavorky k fci plotni to
-        from vypocet import conN
-        self.model_konv = conN
+
 
         self.fig_ax.plot(tau, self.namerene)
         self.fig_ax.plot(tau,self.char_sondy)
@@ -200,17 +199,29 @@ class Hlavni(qtw.QMainWindow):
         self.fig_ax.margins(x=0)
         self.fig_ax.legend(["naměřené hodnoty","impulzní charakteristika","teoretický průběh koncentrace"])
         self.canvas.draw()
-        self.ulozeni_dat()
+
         # add toolbar
         self.addToolBar(Qt.BottomToolBarArea, NavigationToolbar(self.canvas, self))
-    def ulozeni_dat(self):
-        vyp_excel=pd.DataFrame([self.kla],index=["měření č.1"],columns=["kLa"])
-        with pd.ExcelWriter(self.name+ "\kla_vysledky.xlsx") as writer:
-           vyp_excel.to_excel(writer,sheet_name="vysledky")
 
+
+    def ulozeni_dat(self,kla_list,list_excel):
+        self.excel_name = "kla_results.xlsx"
+        vyp_excel = pd.DataFrame(kla_list, index=list_excel, columns=["kLa"])
+        with pd.ExcelWriter(self.excel_name) as writer:
+            vyp_excel.to_excel(writer, sheet_name="results")
+        print("FINISHED, you will find the data in the excel file")
         self.info_for_user.appendPlainText("Výsledek je uložen v excel souboru kla_vysledky.xlsx")
+    def update_GUI_table(self,kla_list,list_excel):
+        print(list_excel[1])
+        print(kla_list[0])
+        for i in range (0,len(self.dtm_files)):
+                self.table.setItem(i,0,QTableWidgetItem(str(list_excel[i])))
+                self.table.setItem(i,1,QTableWidgetItem(str(round(kla_list[i][0],6))))
 
-
+        # path = self.name + "/" + self.excel_name
+        # workbook = openpyxl.load_workbook(path)
+        # sheet = workbook.active
+        # list_values = list(sheet.values)
 def main():
 
     app = qtw.QApplication([])

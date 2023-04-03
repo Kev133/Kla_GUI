@@ -7,7 +7,7 @@ import glob
 import scipy
 import numpy as np
 from scipy.integrate import odeint, simps
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline,LSQUnivariateSpline
 from scipy.signal import savgol_filter
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -15,12 +15,16 @@ import openpyxl
 pi= np.pi
 exp = np.exp
 kla_list = []
-plot_choice = 0
-for i in range (0,18):
+list_excel = []
+plot_choice = 1
 
-    #plot_choice = 0#int(input("Do you want to plot the profiles every iteration? If yes, type 1. If no, type 0.\n"
+
+def main_function(i,directory_name,choice):
+
 
     def custom_float(value):
+        """this function exists because files like konstant.dta have numbers written as for example 1.5d-5
+         this function converts this format to the standard 1.5e-5, so python can recognize it"""
         try:
             return float(value)
         except ValueError:
@@ -34,10 +38,21 @@ for i in range (0,18):
     upper_limit, lower_limit = map(custom_float,paramy[2].split())
     kla_accuracy = custom_float(paramy[3])
     # loading data from konstant.dta
-    with open("konstant.DTA") as f:
+
+    dta_files = glob.glob(directory_name+"/*.DTA")
+
+    for file in dta_files:
+        if "konstant" in file.lower():# tries to find a file that has "konstant" or "KONSTANT" in its name
+            konstant = file  # after the file is found, it is called konstant
+            break
+        else:
+            print("Could not find ""konstant"" folder")
+
+    with open(konstant) as f:
         konstant = f.readlines()
 
     header = konstant[0]
+
     # je tam mezera před nazvem tak pouzivam strip
     probe_name = konstant[1].strip()
     Km1, Km2, Zg1 = map(float, konstant[2].split())
@@ -52,15 +67,12 @@ for i in range (0,18):
 
     gas_in2 = gas_in2/1000/60
     # loading data from xxxx.dtm, have to add [0] because it returns a list
-    dtm_file = glob.glob("*.dtm")[i]
-    print(dtm_file)
+    dtm_file = glob.glob(directory_name+"/*.dtm")[i]
+    measurement_name = dtm_file.replace(directory_name,"")
+    measurement_name = measurement_name.replace("\\","")
+    measurement_name = measurement_name.replace(".dtm","")
     with open(dtm_file, "r") as f:
         exp_profiles = f.read().splitlines()
-    # loading data for comparison from matlab
-
-    with open("srovnani.txt", "r") as f:
-        comparison = f.read().splitlines()
-    comparison = list(map(float,comparison))
 
     exp_profiles = list(map(float, exp_profiles))
     temp = exp_profiles[2]
@@ -124,12 +136,13 @@ for i in range (0,18):
     B = -1730.63
     C = 233.426
     pH2O = 10 ** (A + B / (temp + C)) * 101325 / 760
-
-    print("Does the gas input in konst.dta equal xxx.dtm? " + str(gas_in2 == gas_in))
-    time_points = 2000
+    if not gas_in2 == gas_in:
+        print("Gas input in konst.dta does not equal the one in xxx.dtm ")
+    #time point is how many values are there going to be in the time vector t
+    time_points = 10000
     t = np.linspace(0, max(time_data_inc), num=time_points)
     def probe_function():
-        probe_interpol=np.interp(time_data_inc[index:],time_data_inc,probe_dataN)
+        probe_interpol=np.interp(time_data_inc[index_upper:index_lower], time_data_inc, probe_dataN)
         # probe_data_inc_N = (np.array(probe_data_inc)-steady_probe_2)/(steady_probe_1-steady_probe_2)
         # x = time_data_inc
         # y = probe_data_inc_N
@@ -143,7 +156,7 @@ for i in range (0,18):
 
         n = np.linspace(0, 1000, num=1001)
 
-        It_Opt = np.zeros_like(t)  # create an array to store the results
+        It_Opt = np.zeros_like(t)
         Ht_Opt = np.zeros_like(t)
 
         for i, ti in enumerate(t):
@@ -158,22 +171,49 @@ for i in range (0,18):
 
 
     def spline_pG():
-        #TODO figure out what spline and filter to use so the data starts at 1
+
         def savitzky_golay_filter(data, window_size, order):
             return savgol_filter(data, window_size, order)
 
         xG = (np.array(pG_data_inc) - steady_pG_2) / (steady_pG_1 - steady_pG_2)
-        xG = savitzky_golay_filter(xG, window_size=4, order=3)
+        #xG = savitzky_golay_filter(xG, window_size=4, order=3)
         hh = CubicSpline(time_data_inc, xG)
-        # plt.plot(t,hh(t))
+        knots=[]
+        #knots = [ 0.1,0.15,0.2,0.3]
+        for i in range (1,40):
+            knots.append(time_data_inc[i*8])
+        # for i in range (15,25):
+        #     knots.append(time_data_inc[i*16])
+
+        w = np.ones(len(xG))
+        w[0]=8
+        w[1]=1
+        w[2]=1
+        lsq = LSQUnivariateSpline(time_data_inc,xG,knots,w,ext="const")
+        der_lsq = lsq.derivative()(t)
+        der_cubic = hh.derivative()(t)
+        # plt.plot(time_data_inc,lsq(time_data_inc),label="lsqspline")
+        # plt.plot(time_data_inc, hh(time_data_inc),label = "cubic spline")
+        # plt.plot(t,der_lsq,label="der_lsq")
+        # #plt.plot(t,der_cubic,label = "der_cubic")
+        # plt.legend()
         # plt.show()
-        return CubicSpline(time_data_inc, xG)
+        return lsq#CubicSpline(time_data_inc, xG)
     # this line helps determine what index will be used for the start of the comparing times
-    index=np.where(probe_dataN>=upper_limit)[0].max()+1
+    try:
+        index_upper= np.where(probe_dataN >= upper_limit)[0].max() + 1
+    except ValueError:
+        index_upper = 0
+    # finds the lower limit index as all the indexes that are bigger than the limit, e.g. 0.03, usually 380-400
+    # this index is the end for the comparing times
+    try:
+        index_lower = np.where(probe_dataN<=lower_limit)[0].min()+1
+    except ValueError:
+        index_lower = 400
 
 
     #print(time_data_inc[index]), from this time the comparisons will start
-    time_data_for_compare = time_data_inc[index:]
+    time_data_for_compare = time_data_inc[index_upper:index_lower]
     cs =spline_pG()
     Ht = impulse_response()
     probe_profile = probe_function()
@@ -184,63 +224,40 @@ for i in range (0,18):
     kla_estimate = np.log(probe_dataN[index_t2]/probe_dataN[index_t1])/(time_data_inc[index_t1]-time_data_inc[index_t2])
     #print(probe_dataN[index_t2],probe_dataN[index_t1])
     #print(time_data_inc[index_t2],time_data_inc[index_t1])
-    print(f"nástřel kla je {kla_estimate}")
+    print(measurement_name)
+    print(f"Kla estimate = {kla_estimate}")
+    p1 = steady_pG_1 + pG_atm
+    p2 = steady_pG_2 + pG_atm
 
-    def to_opt(kla):
-        p1 = steady_pG_1 + pG_atm
-        p2 = steady_pG_2 + pG_atm
-
-        #print(kla)
-
-        def dSdt(t, S):
+    def dSdt(t, S,kla):
 
 
-            xO2L, xN2L, xO2G = S
+        xO2L, xN2L, xO2G = S
 
-            dxO2L = kla * (xO2G - xO2L)
-            dxN2L = kla * (difN2 / difO2) ** (0.5) * ((cs(t) - xO2G * y) / (1 - y) - xN2L)
+        dxO2L = kla * (xO2G - xO2L)
+        dxN2L = kla * (difN2 / difO2) ** (0.5) * ((cs(t) - xO2G * y) / (1 - y) - xN2L)
 
-            gas_out = (gas_in * (p2 - pH2O) / (p1 - p2) - volume * (
-                    mO2 * dxO2L * y + mN2 * dxN2L * (1 - y)) - dVG * cs.derivative()(t)) / (
-                                           cs(t) + (p2 - pH2O) / (p1 - p2))
+        gas_out = (gas_in * (p2 - pH2O) / (p1 - p2) - volume * (
+                mO2 * dxO2L * y + mN2 * dxN2L * (1 - y)) - dVG * cs.derivative()(t)) / (
+                                       cs(t) + (p2 - pH2O) / (p1 - p2))
 
-            dxO2G = (gas_in * (p2 - pH2O) / (
-                    p1 - p2) - volume * mO2 * dxO2L - gas_out * (xO2G + (
+        dxO2G = (gas_in * (p2 - pH2O) / (
+                p1 - p2) - volume * mO2 * dxO2L - gas_out * (xO2G + (
 
-                    p2 - pH2O) / (p1 - p2))) / dVG
-            #print('dxO2L =', dxO2L)
-            # print('kla =', kla)
-            #print('xO2G =', xO2G)
-            #print('xO2L =', xO2L)
-            # print('dxN2L =', dxN2L)
-            # print('difN2 =', difN2)
-            # print('difO2 =', difO2)
-            #print('t =', t)
-            # print('y =', y)
-            # print('xN2L =', xN2L)
-            #print('gas_out =', gas_out)
-            # print('gas_in =', gas_in)
-            # print('p2 =', p2)
-            # print('pH2O =', pH2O)
-            # print('p1 =', p1)
-            # print('volume =', volume)
-            # print('mO2 =', mO2)
-            # print('mN2 =', mN2)
-            # print('dVG =', dVG)
-            # print('dxO2G =', dxO2G)
+                p2 - pH2O) / (p1 - p2))) / dVG
 
-            return np.array([dxO2L,
-                     dxN2L,
-                     dxO2G]).flatten()
+        return np.array([dxO2L,
+                 dxN2L,
+                 dxO2G]).flatten()
 
         # initial conditions, they start from 1 because the profiles of x02L,x02_G,xN2L are normalized from 1 to 0.
-
+    def to_opt(kla):
         xO2L_0 = 1
         xO2G_0 = 1
         xN2L_0 = 1
         S_0 = (xO2L_0, xN2L_0, xO2G_0)
 
-        sol = odeint(dSdt, y0=S_0, t=t, tfirst=True)
+        sol = odeint(dSdt, y0=S_0, t=t, tfirst=True,args=(kla,))
 
         O2L = sol[:, 0]
         N2L = sol[:, 1]
@@ -248,7 +265,7 @@ for i in range (0,18):
         # We have obtained the oxygen concentration profiles and now are sending them back to obtain their derivates
         # mainly dxO2L
         S_again = O2L,N2L,O2G
-        dx_concentrations=dSdt(t,S_again)
+        dx_concentrations=dSdt(t,S_again,kla)
         dxO2L = dx_concentrations[0:len(t)]
 
         # plt.plot(t,O2L)
@@ -259,7 +276,7 @@ for i in range (0,18):
         # plt.show()
 
 
-        time_data_for_compare = time_data_inc[index:]
+
         G1 = np.zeros(len(time_data_for_compare))
         vector = np.zeros((len(t), len(time_data_for_compare)))
         #Convolution integral
@@ -274,6 +291,7 @@ for i in range (0,18):
             probe_dataN = (np.array(probe_data_inc) - steady_probe_2) / (steady_probe_1 - steady_probe_2)
 
         G2=1+G1
+        plot_choice=0
         if plot_choice ==1:
             plt.plot(time_data_for_compare[1:], G2[1:],label="konvoluce")
             plt.plot(time_data_for_compare[1:],probe_profile[1:],label ="Probe profile",linewidth =0.8)
@@ -281,8 +299,9 @@ for i in range (0,18):
             plt.plot(time_data_inc, probe_dataN,"ro",markersize=1,label = "Probe data")
             plt.legend()
             plt.show()
-        # TODO jak return vic hodnot??
+
         #print (sum((G2 - probe_profile) ** 2))
+
         return sum((G2[1:] - probe_profile[1:]) ** 2)
 
 
@@ -292,31 +311,24 @@ for i in range (0,18):
         if choice == 1: # options={"maxiter":1,"disp": True}
             return scipy.optimize.minimize(to_opt, kla_estimate, method ="Nelder-Mead",tol=1e-6).x
         elif choice == 2:
-            return scipy.optimize.minimize(to_opt, kla_estimate,method ="BFGS").x
+            return scipy.optimize.minimize(to_opt, kla_estimate,method ="COBYLA").x
         elif choice == 3:
             return scipy.optimize.minimize(to_opt,kla_estimate,method ="Powell").x
         else:
             print(choice)
 
-    neco=[0]
-    neco[0]= opt(1)[0]
-    print(neco)
-    kla_list.append(neco)
-print(kla_list)
-list_excel = []
-for f in range(1,19):
-    list_excel.append(str(f))
-print(list_excel)
+    kla=[0]
+    kla[0]= opt(choice)[0]
+    print(f"Found kla {kla[0]}")
+    kla_list.append(kla)
+    list_excel.append(measurement_name)
+    return kla[0],measurement_name
+
 def ulozeni_dat():
     vyp_excel = pd.DataFrame(kla_list, index=list_excel, columns=["kLa"])
     with pd.ExcelWriter("kla_vysledky.xlsx") as writer:
         vyp_excel.to_excel(writer, sheet_name="vysledky")
-ulozeni_dat()
-# error= []
-# for i in range (0,6):
-#     error.append(((abs(comparison[i]-kla_list[i]))/comparison[i]*100))
-# print(f"this is the list of errors in % {error}")
-# error_sum = sum(error)
-# print(error_sum)
+    print("FINISHED, you will find the data in the excel file")
+
 if __name__=="__main__":
     pass
