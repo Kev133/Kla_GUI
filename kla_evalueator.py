@@ -5,6 +5,7 @@ it also contains the model and optimization function.
 # inc and dec are used for the words increase and decrease
 import glob
 import scipy
+import os
 import numpy as np
 from scipy.integrate import odeint, simps
 from scipy.interpolate import CubicSpline,LSQUnivariateSpline
@@ -16,10 +17,22 @@ pi= np.pi
 exp = np.exp
 kla_list = []
 list_excel = []
-plot_choice = 1
 
 
-def main_function(i,directory_name,choice):
+
+# def opt(choice,to_opt, kla_estimate):
+#     if choice == 1:  # options={"maxiter":1,"disp": True}
+#         return scipy.optimize.minimize(to_opt, kla_estimate, method="Nelder-Mead", tol=1e-6).x
+#     elif choice == 2:
+#         return scipy.optimize.minimize(to_opt, kla_estimate, method="COBYLA").x
+#     elif choice == 3:
+#         return scipy.optimize.minimize(to_opt, kla_estimate, method="Powell").x
+#     else:
+#         print(choice)
+
+
+
+def main_function(i,directory_name,choice,plot_info):
 
 
     def custom_float(value):
@@ -142,7 +155,7 @@ def main_function(i,directory_name,choice):
     time_points = 10000
     t = np.linspace(0, max(time_data_inc), num=time_points)
     def probe_function():
-        probe_interpol=np.interp(time_data_inc[index_upper:index_lower], time_data_inc, probe_dataN)
+        #probe_interpol=np.interp(time_data_inc[index_upper:index_lower], time_data_inc, probe_dataN)
         # probe_data_inc_N = (np.array(probe_data_inc)-steady_probe_2)/(steady_probe_1-steady_probe_2)
         # x = time_data_inc
         # y = probe_data_inc_N
@@ -151,6 +164,7 @@ def main_function(i,directory_name,choice):
         # data = np.polyval(pol,t)
         # probe_data =data#(data-data.max())/(data.min()-data.max())
         # return probe_data
+        probe_interpol = 2
         return probe_interpol
     def impulse_response():
 
@@ -172,21 +186,18 @@ def main_function(i,directory_name,choice):
 
     def spline_pG():
 
-        def savitzky_golay_filter(data, window_size, order):
-            return savgol_filter(data, window_size, order)
-
         xG = (np.array(pG_data_inc) - steady_pG_2) / (steady_pG_1 - steady_pG_2)
         #xG = savitzky_golay_filter(xG, window_size=4, order=3)
         hh = CubicSpline(time_data_inc, xG)
         knots=[]
         #knots = [ 0.1,0.15,0.2,0.3]
-        for i in range (1,40):
+        for i in range (1,15):
             knots.append(time_data_inc[i*8])
-        # for i in range (15,25):
-        #     knots.append(time_data_inc[i*16])
+        for i in range (15,25):
+             knots.append(time_data_inc[i*16])
 
         w = np.ones(len(xG))
-        w[0]=8
+        w[0]=10
         w[1]=1
         w[2]=1
         lsq = LSQUnivariateSpline(time_data_inc,xG,knots,w,ext="const")
@@ -198,7 +209,7 @@ def main_function(i,directory_name,choice):
         # #plt.plot(t,der_cubic,label = "der_cubic")
         # plt.legend()
         # plt.show()
-        return lsq#CubicSpline(time_data_inc, xG)
+        return lsq,xG#CubicSpline(time_data_inc, xG)
     # this line helps determine what index will be used for the start of the comparing times
     try:
         index_upper= np.where(probe_dataN >= upper_limit)[0].max() + 1
@@ -214,7 +225,8 @@ def main_function(i,directory_name,choice):
 
     #print(time_data_inc[index]), from this time the comparisons will start
     time_data_for_compare = time_data_inc[index_upper:index_lower]
-    cs =spline_pG()
+    cs =spline_pG()[0]
+    xG = spline_pG()[1]
     Ht = impulse_response()
     probe_profile = probe_function()
 
@@ -251,7 +263,7 @@ def main_function(i,directory_name,choice):
                  dxO2G]).flatten()
 
         # initial conditions, they start from 1 because the profiles of x02L,x02_G,xN2L are normalized from 1 to 0.
-    def to_opt(kla):
+    def to_opt(kla,plot_choice):
         xO2L_0 = 1
         xO2G_0 = 1
         xN2L_0 = 1
@@ -291,37 +303,46 @@ def main_function(i,directory_name,choice):
             probe_dataN = (np.array(probe_data_inc) - steady_probe_2) / (steady_probe_1 - steady_probe_2)
 
         G2=1+G1
-        plot_choice=0
+
+
         if plot_choice ==1:
-            plt.plot(time_data_for_compare[1:], G2[1:],label="konvoluce")
-            plt.plot(time_data_for_compare[1:],probe_profile[1:],label ="Probe profile",linewidth =0.8)
-            plt.plot(t,O2L,label = "model profile")
-            plt.plot(time_data_inc, probe_dataN,"ro",markersize=1,label = "Probe data")
+
+            plt.clf()
+            plt.plot(time_data_for_compare[1:], G2[1:],label="konvoluce",linewidth = 0.8)
+            plt.plot(time_data_inc,xG ,label="manometr", linewidth=0.8)
+            #plt.plot(time_data_for_compare[1:],probe_profile[1:],label ="Probe profile",linewidth =0.8)
+            plt.plot(t,O2L,label = "model profile",linewidth = 0.8)
+            plt.plot(time_data_inc,cs(time_data_inc),label = "Spline manometr",linewidth = 0.8)
+            plt.plot(time_data_inc, probe_dataN,"ro",markersize=0.8,label = "Probe data")
             plt.legend()
-            plt.show()
+
+            plt.savefig(directory_name+"/Graphs_Python/Graph "+measurement_name,dpi=700)
 
         #print (sum((G2 - probe_profile) ** 2))
-
-        return sum((G2[1:] - probe_profile[1:]) ** 2)
-
-
+        if plot_choice !=1:
+            return sum((G2[1:] - probe_dataN[index_upper+1:index_lower]) ** 2)
 
     def opt(choice):
-
-        if choice == 1: # options={"maxiter":1,"disp": True}
-            return scipy.optimize.minimize(to_opt, kla_estimate, method ="Nelder-Mead",tol=1e-6).x
+        if choice == 1:  # options={"maxiter":1,"disp": True}
+            return scipy.optimize.minimize(to_opt, kla_estimate, method="Nelder-Mead", tol=1e-6,args=3).x
         elif choice == 2:
-            return scipy.optimize.minimize(to_opt, kla_estimate,method ="COBYLA").x
+            return scipy.optimize.minimize(to_opt, kla_estimate, method="COBYLA",tol=1e-6,args=3).x
         elif choice == 3:
-            return scipy.optimize.minimize(to_opt,kla_estimate,method ="Powell").x
+            return scipy.optimize.minimize(to_opt, kla_estimate, method="Powell",tol=1e-6,args=3).x
         else:
             print(choice)
 
-    kla=[0]
-    kla[0]= opt(choice)[0]
+
+    kla = [0]
+    kla[0] = opt(choice)[0]
+    if plot_info == True:
+        if not os.path.exists(directory_name + "/Graphs_Python"):
+            os.makedirs(directory_name + "/Graphs_Python")
+
+        to_opt(kla[0], 1)
+
     print(f"Found kla {kla[0]}")
-    kla_list.append(kla)
-    list_excel.append(measurement_name)
+
     return kla[0],measurement_name
 
 def ulozeni_dat():
@@ -329,6 +350,7 @@ def ulozeni_dat():
     with pd.ExcelWriter("kla_vysledky.xlsx") as writer:
         vyp_excel.to_excel(writer, sheet_name="vysledky")
     print("FINISHED, you will find the data in the excel file")
+
 
 if __name__=="__main__":
     pass
