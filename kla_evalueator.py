@@ -32,7 +32,7 @@ list_excel = []
 
 
 
-def main_function(i,directory_name,choice,plot_info):
+def main_function(i,directory_name,choice,plot_info,paramy):
 
 
     def custom_float(value):
@@ -43,15 +43,16 @@ def main_function(i,directory_name,choice,plot_info):
         except ValueError:
             return float(value.replace("d", "e"))
 
-    # loading data from paramy.dta
-    with open("paramy.DTA") as f:
-        paramy = f.readlines()
-    manometer_constant = custom_float(paramy[0])
-    spline_accuracy = custom_float(paramy[1])
-    upper_limit, lower_limit = map(custom_float,paramy[2].split())
-    kla_accuracy = custom_float(paramy[3])
+    # # loading data from paramy.dta
+    # with open("paramy.DTA") as f:
+    #     paramy = f.readlines()
+    # manometer_constant = custom_float(paramy[0])
+    # spline_accuracy = custom_float(paramy[1])
+    # upper_limit, lower_limit = map(custom_float,paramy[2].split())
+    # kla_accuracy = custom_float(paramy[3])
     # loading data from konstant.dta
-
+    upper_limit = paramy[0]
+    lower_limit = paramy[1]
     dta_files = glob.glob(directory_name+"/*.DTA")
 
     for file in dta_files:
@@ -64,7 +65,7 @@ def main_function(i,directory_name,choice,plot_info):
     with open(konstant) as f:
         konstant = f.readlines()
 
-    header = konstant[0]
+    header = konstant[0].strip()
 
     # je tam mezera před nazvem tak pouzivam strip
     probe_name = konstant[1].strip()
@@ -308,12 +309,12 @@ def main_function(i,directory_name,choice,plot_info):
         if plot_choice ==1:
 
             plt.clf()
-            plt.plot(time_data_for_compare[1:], G2[1:],label="konvoluce",linewidth = 0.8)
-            plt.plot(time_data_inc,xG ,label="manometr", linewidth=0.8)
+            plt.plot(time_data_for_compare[1:], G2[1:],label="model profile",linewidth = 0.8)
+            plt.plot(time_data_inc,xG ,label="pressure", linewidth=0.8)
             #plt.plot(time_data_for_compare[1:],probe_profile[1:],label ="Probe profile",linewidth =0.8)
-            plt.plot(t,O2L,label = "model profile",linewidth = 0.8)
-            plt.plot(time_data_inc,cs(time_data_inc),label = "Spline manometr",linewidth = 0.8)
-            plt.plot(time_data_inc, probe_dataN,"ro",markersize=0.8,label = "Probe data")
+            #plt.plot(t,O2L,label = "model profile",linewidth = 0.8)
+            plt.plot(time_data_inc,cs(time_data_inc),label = "pressure spline",linewidth = 0.8)
+            plt.plot(time_data_inc, probe_dataN,"ro",markersize=0.8,label = "Oxygen probe")
             plt.legend()
 
             plt.savefig(directory_name+"/Graphs_Python/Graph "+measurement_name,dpi=700)
@@ -340,17 +341,9 @@ def main_function(i,directory_name,choice,plot_info):
             os.makedirs(directory_name + "/Graphs_Python")
 
         to_opt(kla[0], 1)
-
     print(f"Found kla {kla[0]}")
 
-    return kla[0],measurement_name
-
-def ulozeni_dat():
-    vyp_excel = pd.DataFrame(kla_list, index=list_excel, columns=["kLa"])
-    with pd.ExcelWriter("kla_vysledky.xlsx") as writer:
-        vyp_excel.to_excel(writer, sheet_name="vysledky")
-    print("FINISHED, you will find the data in the excel file")
-
+    return kla[0],measurement_name, header
 
 if __name__=="__main__":
     pass
