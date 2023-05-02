@@ -54,7 +54,7 @@ def main_function(i,directory_name,choice,plot_info,paramy):
     upper_limit = paramy[0]
     lower_limit = paramy[1]
     dta_files = glob.glob(directory_name+"/*.DTA")
-
+    print("FIRSTT")
     for file in dta_files:
         if "konstant" in file.lower():# tries to find a file that has "konstant" or "KONSTANT" in its name
             konstant = file  # after the file is found, it is called konstant
@@ -202,8 +202,8 @@ def main_function(i,directory_name,choice,plot_info,paramy):
         w[1]=1
         w[2]=1
         lsq = LSQUnivariateSpline(time_data_inc,xG,knots,w,ext="const")
-        der_lsq = lsq.derivative()(t)
-        der_cubic = hh.derivative()(t)
+        #der_lsq = lsq.derivative()(t)
+        # der_cubic = hh.derivative()(t)
         # plt.plot(time_data_inc,lsq(time_data_inc),label="lsqspline")
         # plt.plot(time_data_inc, hh(time_data_inc),label = "cubic spline")
         # plt.plot(t,der_lsq,label="der_lsq")
@@ -309,12 +309,12 @@ def main_function(i,directory_name,choice,plot_info,paramy):
         if plot_choice ==1:
 
             plt.clf()
-            plt.plot(time_data_for_compare[1:], G2[1:],label="model profile",linewidth = 0.8)
-            plt.plot(time_data_inc,xG ,label="pressure", linewidth=0.8)
+            plt.plot(time_data_for_compare[1:], G2[1:],label="Model probe response",linewidth = 0.8)
+            plt.plot(time_data_inc,xG ,label="Pressure profile", linewidth=0.8)
             #plt.plot(time_data_for_compare[1:],probe_profile[1:],label ="Probe profile",linewidth =0.8)
             #plt.plot(t,O2L,label = "model profile",linewidth = 0.8)
-            plt.plot(time_data_inc,cs(time_data_inc),label = "pressure spline",linewidth = 0.8)
-            plt.plot(time_data_inc, probe_dataN,"ro",markersize=0.8,label = "Oxygen probe")
+            plt.plot(time_data_inc,cs(time_data_inc),label = "Pressure spline",linewidth = 0.8)
+            plt.plot(time_data_inc, probe_dataN,"ro",markersize=0.8,label = "Oxygen probe response")
             plt.legend()
 
             plt.savefig(directory_name+"/Graphs_Python/Graph "+measurement_name,dpi=700)
