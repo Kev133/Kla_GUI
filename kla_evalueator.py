@@ -54,7 +54,6 @@ def main_function(i,directory_name,choice,plot_info,paramy):
     upper_limit = paramy[0]
     lower_limit = paramy[1]
     dta_files = glob.glob(directory_name+"/*.DTA")
-    print("FIRSTT")
     for file in dta_files:
         if "konstant" in file.lower():# tries to find a file that has "konstant" or "KONSTANT" in its name
             konstant = file  # after the file is found, it is called konstant
@@ -76,6 +75,7 @@ def main_function(i,directory_name,choice,plot_info,paramy):
 
     for line in konstant[5:]:
         values.append(tuple(map(float, line.split())))
+
 
     gas_in2, h, gas_hold_up, agitator_power = values[i][0:4]
 

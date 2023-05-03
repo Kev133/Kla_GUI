@@ -5,7 +5,6 @@ it also loads data from the files "konstant.dta" and "xxxx.dtm"
 
 # inc and dec are used for the words increase and decrease
 import os
-import glob
 import scipy
 import numpy as np
 from scipy.integrate import odeint, simps
@@ -37,34 +36,41 @@ def fix_float(value):
         return float(value.replace("d", "e"))
 
 
-def load_data(limits, directory_name):
+def find_experiment_number(experiment_name):
+    """Finds the number of the experiment from 0-17 (18 total) from the experiment name
+     which is in the format e.g. PBD23C, this would equal number 8
+      this number is then used to find the correct line in konstant.dta for the exp."""
+
+    gas_in_number = int(experiment_name[3]) - 1
+    impeller_frequency_num = int(experiment_name[4])
+    experiment_number = 6 * gas_in_number + impeller_frequency_num - 1
+
+    return experiment_number
+
+
+def load_data(dtm_file, konstant_file, directory_name):
     """
     function for extracting data from the konstant.dta file and xxx.dtm file.
     The data in these files is seperated into variables which populate
     the dictionary model_input returned by this function.
     """
 
-    model_input = {"upper_limit": limits[0], "lower_limit": limits[1]}
-
-    # loading data from xxxx.dtm, have to add [i] because it returns a list
-    # TODO misto [1] tady musí být číslo měření
-    dtm_file = glob.glob(directory_name + "/*.dtm")[0]
-
     # trying to obtain just the experiment name
     experiment_name = dtm_file.replace(directory_name, "")
     experiment_name = experiment_name.replace("\\", "")
     experiment_name = experiment_name.replace(".dtm", "")
-
     # loading the data from the .dtm file into exp_profiles
     with open(dtm_file, "r") as f:
         exp_profiles = f.read().splitlines()
 
     exp_profiles = list(map(float, exp_profiles))
     temp = exp_profiles[2]
-    model_input.update({
+    model_input = ({
+        "experiment_name": experiment_name,
         "temp": temp,
         "pG_atm": exp_profiles[3] * 101325 / 760,
-        "gas_in_flow": exp_profiles[4] / 1000 / 60,
+        "gas_in_flow_raw": exp_profiles[4],
+        "gas_in_flow":exp_profiles[4] / 1000 / 60,
         "agitator_frequency": exp_profiles[5],
         "num_of_channels": exp_profiles[6],
         "y": exp_profiles[7],
@@ -97,11 +103,11 @@ def load_data(limits, directory_name):
     current_line = current_line + num_data_inc
     model_input["steady_probe_2"] = exp_profiles[current_line + 1]
 
-    model_input["steady_probe_1_down"] = exp_profiles[current_line + 1]  # unused
-    current_line = current_line + 2
-    model_input["probe_data_dec"] = exp_profiles[current_line:current_line + num_data_dec]  # unused
-    current_line = current_line + num_data_dec
     steady_probe_1_down = exp_profiles[current_line + 1]  # unused
+    current_line = current_line + 2
+    probe_data_dec = exp_profiles[current_line:current_line + num_data_dec]  # unused
+    current_line = current_line + num_data_dec
+    steady_probe_2_down = exp_profiles[current_line + 1]  # unused
     no_clue_again = exp_profiles[current_line + 1]
     current_line = current_line + 2
     time_data_inc = exp_profiles[current_line:current_line + num_data_inc]
@@ -110,18 +116,13 @@ def load_data(limits, directory_name):
     time_data_dec = exp_profiles[current_line:current_line + num_data_dec]  # unused
 
     # .DTA FILE
-    dta_files = glob.glob(directory_name + "/*.DTA")  # makes a list of files which end with .DTA
-    for file in dta_files:
-        # tries to find a file that has "konstant" or "KONSTANT" in its name
-        if "konstant" in file.lower():
-            konstant = file  # after the file is found, it is called konstant
-            break
     # seperating data from konstant.dta into lines
-    with open(konstant) as f:
+    with open(konstant_file,encoding="utf-8") as f:
         konstant = f.readlines()
 
     model_input["header"] = konstant[0].strip()
-    model_input["probe_name"] = konstant[1].strip()
+    probe_name = konstant[1].strip()
+    model_input["probe_name"] = probe_name.replace("'","")
     Km1, Km2, Zg1 = map(float, konstant[2].split())
     mO2_raw, mN2_raw, difO2, difN2 = map(fix_float, konstant[3].split())
     volume = float(konstant[4]) / 1000
@@ -129,9 +130,10 @@ def load_data(limits, directory_name):
     # Getting the process variables from konstant.dta
     for line in konstant[5:]:
         process_variables.append(tuple(map(float, line.split())))
-    # TODO misto [1] tady musí být číslo měření
-    gas_in_flow_k, agitator_frequency_k, gas_hold_up, agitator_power = process_variables[0][0:4]
-    print(gas_in_flow_k, agitator_frequency_k)
+    experiment_number = find_experiment_number(experiment_name)
+    gas_in_flow_k, agitator_frequency_k, gas_hold_up, agitator_power = \
+        process_variables[experiment_number][0:4]
+
     gas_in_flow_k = gas_in_flow_k / 1000 / 60
 
     # # constants for Antoine equation for partial pressure of H20
@@ -139,11 +141,12 @@ def load_data(limits, directory_name):
     B = -1730.63
     C = 233.426
     # pH2O = 10 ** (A + B / (temp + C)) * 101325 / 760
-    if gas_in_flow_k == model_input["gas_in_flow"] and agitator_frequency_k == model_input["agitator_frequency"]:
+    if not gas_in_flow_k == model_input["gas_in_flow"] and not\
+            agitator_frequency_k == model_input["agitator_frequency"]:
         print("Gas input in konst.dta does equal the one in xxx.dtm ")
-    # # time point is how many values are there going to be in the time vector t
+
+    # time point is how many values are there going to be in the time vector t
     time_points = 10000
-    t = np.linspace(0, max(time_data_inc), num=time_points)
 
     model_input.update({
         "mO2": mO2_raw * (273.15 + temp) * 8.314472 / 101325,
@@ -166,6 +169,8 @@ def load_data(limits, directory_name):
         "p1": model_input["steady_pG_1"] + model_input["pG_atm"],
         "p2": model_input["steady_pG_2"] + model_input["pG_atm"]
     })
+    unused_var_list = [Km2, Zg1, steady_probe_1_down, steady_probe_2_down, probe_data_dec,
+                       pG_data_dec, time_data_dec, no_clue_again, no_clue,steady_pG_2_down]
     return model_input
 
 
@@ -195,6 +200,9 @@ def probe_characteristics(var):
 
 
 def spline_pG(arg):
+    """Noisy xG pressure time profile is fit with a spline, using the spline in the ODEs
+    helps speed all the calculations by a lot"""
+
     # xG = savitzky_golay_filter(xG, window_size=4, order=3)
     hh = CubicSpline(arg["time_data_inc"], arg["xG"])
     knots = []
@@ -209,7 +217,6 @@ def spline_pG(arg):
     weights_spline[0] = 10
 
     lsq_spline = LSQUnivariateSpline(arg["time_data_inc"], arg["xG"], knots, weights_spline, ext="const")
-    print(lsq_spline(arg["t"]))
     # der_lsq = lsq_spline.derivative()(arg["t"])
     # der_cubic = hh.derivative()(arg["t"])
     # plt.plot(arg["time_data_inc"],lsq_spline(arg["time_data_inc"]),label="lsqspline")
@@ -222,6 +229,8 @@ def spline_pG(arg):
 
 
 def estimate_kla(var):
+    """Estimating kla from simple formula , kla_estimate is used as the estimate
+    in the optimize methods"""
     # print(time_data_inc[index]), from this time the comparisons will start
 
     index_t2 = np.where(var["probe_dataN"] >= 0.75)[0].max()
@@ -236,6 +245,9 @@ def estimate_kla(var):
 
 
 def find_boundary_indexes(var):
+    """This function takes the limits that were in the GUI widget "Set limits" and
+    finds the indexes for these limits in probe_dataN. These are then used to
+    find the time profile which will be used to compare the model and experimental values"""
     # this line helps determine what index will be used for the start of the comparing times
     try:
         index_upper = np.where(var["probe_dataN"] >= var["upper_limit"])[0].max() + 1
@@ -252,6 +264,7 @@ def find_boundary_indexes(var):
 
 
 def dSdt(t, S, kla, var, cs):
+    """Model equations, system of ODEs"""
     kla = kla[0]
     xO2L, xN2L, xO2G = S
 
@@ -276,6 +289,8 @@ def dSdt(t, S, kla, var, cs):
 
 
 def calculate_ODE(kla, var, cs):
+    """Calculates the oxygen,nitrogen concentrations in liquid and oxygen concentration in the gas,
+    as well as their derivations. The derivations are used in the convolution integral."""
     xO2L_0 = 1
     xO2G_0 = 1
     xN2L_0 = 1
@@ -300,7 +315,7 @@ def calculate_ODE(kla, var, cs):
     return xO2L, dxO2L
 
 
-def convolution_integral(kla, var, cs):
+def convolution_integral(kla, var, cs,directory):
     oxygen_concentrations = calculate_ODE(kla, var, cs)
     xO2L = oxygen_concentrations[0]
     dxO2L = oxygen_concentrations[1]
@@ -314,12 +329,9 @@ def convolution_integral(kla, var, cs):
 
         G1[k] = simps(vector[0:i, k], var["t"][0:i])
 
-        probe_dataN = (np.array(var["probe_data_inc"]) - var["steady_probe_2"]) \
-                      / (var["steady_probe_1"] - var["steady_probe_2"])
     G2 = 1 + G1
     if var["plot_choice"] != 1:
-        # print (sum((G2 - probe_profile) ** 2))
-        return sum((G2[1:] - probe_dataN[var["index_upper"] + 1:var["index_lower"]]) ** 2)
+        return sum((G2[1:] - var["probe_dataN"][var["index_upper"] + 1:var["index_lower"]]) ** 2)
     if var["plot_choice"] == 1:
         plt.clf()
         plt.plot(var["time_profile_for_compare"][1:], G2[1:], label="Model probe response", linewidth=0.8)
@@ -327,48 +339,39 @@ def convolution_integral(kla, var, cs):
         # plt.plot(time_data_for_compare[1:],probe_profile[1:],label ="Probe profile",linewidth =0.8)
         # plt.plot(t,O2L,label = "model profile",linewidth = 0.8)
         plt.plot(var["time_data_inc"], cs(var["time_data_inc"]), label="Pressure spline", linewidth=0.8)
-        plt.plot(var["time_data_inc"], probe_dataN, "ro", markersize=0.8, label="Oxygen probe response")
+        plt.plot(var["time_data_inc"], var["probe_dataN"], "ro", markersize=0.8, label="Oxygen probe response")
+        plt.title("measured by "+var["probe_name"] +" with constant: " +str(round(var["Km1"],4))+
+            "\n kla = " + str(round(kla[0], 5)))
+        plt.suptitle("Plot for experiment " + var["experiment_name"],fontsize=14)
         plt.legend()
-
-        plt.savefig(directory + "/Graphs_Python/Graph " + var["header"], dpi=700)
+        plt.tight_layout()
+        plt.savefig(directory + "/Plots/Graph " + var["experiment_name"], dpi=700)
 
 
 def minimize_functions(choice, kla_estimate, var, cs):
     if choice == 1:  # options={"maxiter":1,"disp": True}
         return scipy.optimize.minimize(convolution_integral, kla_estimate,
-                                       method="Nelder-Mead", tol=1e-6, args=(var, cs)).x
+                                       method="Nelder-Mead", tol=1e-6, args=(var, cs,"")).x
     elif choice == 2:
         return scipy.optimize.minimize(convolution_integral, kla_estimate,
-                                       method="COBYLA", tol=1e-6, args=(var, cs)).x
+                                       method="COBYLA", tol=1e-6, args=(var, cs,"")).x
     elif choice == 3:
-        return scipy.optimize.minimize(convolution_integral, kla_estimate,
-                                       method="Powell", tol=1e-6, args=(var, cs)).x
-    else:
-        print(choice)
+        return scipy.optimize.minimize(convolution_integral, kla_estimate,  #L-BFGS-B, TNC are contenders
+                                       method="Powell", tol=1e-6, args=(var, cs,"")).x
+def plot_results(directory,var,cs,kla):
+    if not os.path.exists(directory + "/Plots"):
+        os.makedirs(directory + "/Plots")
+    var.update({"plot_choice": 1})
+    convolution_integral(kla, var, cs,directory)
 
-    # kla = [0]
-    # kla[0] = opt(choice)[0]
-    # if plot_info == True:
-    #     if not os.path.exists(directory_name + "/Graphs_Python"):
-    #         os.makedirs(directory_name + "/Graphs_Python")
-    #
-    #     to_opt(kla[0], 1)
-    # print(f"Found kla {kla[0]}")
-    #
-    # return kla[0], measurement_name, header
-
-
-limits = [0.99, 0.03]
-directory = "C:/Users/Kevin/Desktop/1PBD"
-choice = 1
-plot_info = 1
-
-
-def main_function(directory, plot_info):
-    """The main function of this module, all the events that happen in this module
+def main_function(dtm_file, konstant_file, directory, opt_method, plot_info, limits):
+    """
+    All the events that happen in this module
     are called from this function, this is also the function that is called by the
-    GUI.py module"""
-    model_input = load_data(limits, directory)
+    GUI.py module
+    """
+    model_input = load_data(dtm_file, konstant_file, directory)
+    model_input.update({"upper_limit": limits[0], "lower_limit": limits[1]})
     Ht = probe_characteristics(model_input)
     cs = spline_pG(model_input)
     kla_estimation = estimate_kla(model_input)
@@ -381,15 +384,11 @@ def main_function(directory, plot_info):
                         })
 
     kla = [0]
-    kla[0] = minimize_functions(choice, kla_estimation, model_input, cs)[0]
-    print(kla)
+    kla[0] = minimize_functions(opt_method, kla_estimation, model_input, cs)[0]
     if plot_info == 1:
-        if not os.path.exists(directory + "/Graphs_Python"):
-            os.makedirs(directory + "/Graphs_Python")
-        model_input.update({"plot_choice": 1})
-        convolution_integral(kla,model_input,cs)
+        plot_results(directory,model_input,cs,kla)
+    return kla[0], model_input["experiment_name"], model_input["header"],model_input["gas_in_flow_raw"],\
+           model_input["agitator_frequency"],model_input["gas_hold_up"]
 
-
-main_function(directory, plot_info)
 if __name__ == "__main__":
     pass

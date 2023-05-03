@@ -4,10 +4,10 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 import glob
 import PyQt5.QtGui as qtg
-from PyQt5.QtWidgets import QWidget, QLabel, QFileDialog, QPushButton, QDialog,QFontDialog,QStyle,\
+from PyQt5.QtWidgets import QFileDialog, QPushButton,QStyle,\
     QPlainTextEdit,QMessageBox,QApplication,QRadioButton,QHBoxLayout,QGroupBox, QTableWidget,\
     QTableWidgetItem,QLineEdit,QFormLayout
-import kla_evalueator
+import kla_calculation
 import time
 import pandas as pd
 import openpyxl
@@ -16,7 +16,7 @@ class Hlavni(qtw.QMainWindow):
     def __init__(self):
         qtw.QMainWindow.__init__(self)
         # definovani vlastnosti pro program
-        self.name = None
+        self.directory = None
         self.namerene = None
         self.char_sondy = None
         self.model_valuesN = []
@@ -25,12 +25,12 @@ class Hlavni(qtw.QMainWindow):
         self.results_info = False
         self.radio_button_value= 1
         self.paramy = [0.99,0.03]
+        self.font_size = 11
 
         self.init_ui()
 
 
     def init_ui(self):
-        self.font_size =11
         self.setWindowTitle(" Program for evaluation of oxygen probe data")
         self.setFont(qtg.QFont("Arial",self.font_size))
         self.setGeometry(200, 200, 920, 630)
@@ -39,7 +39,7 @@ class Hlavni(qtw.QMainWindow):
         #directory button
         self.button1 = QPushButton(" Add directory", self)
         self.button1.setGeometry(90, 25, 160, 50)
-        self.button1.clicked.connect(self.pruzkum)
+        self.button1.clicked.connect(self.find_files)
         folder = QStyle.SP_DirOpenIcon
         icon = self.style().standardIcon(folder)
         self.button1.setIcon(icon)
@@ -112,7 +112,8 @@ class Hlavni(qtw.QMainWindow):
         frame.setLayout(layout)
         frame.setTitle("Set limits")
         #info for user
-        self.info_for_user = QPlainTextEdit(f"                Information panel\n\nWelcome, this program calculates kla from experimental data.\n\n", self)
+        self.info_for_user = QPlainTextEdit("    Information panel\n\n"
+            "Welcome, this program calculates kla from experimental data.\n\n", self)
         self.info_for_user.setReadOnly(True)
         self.info_for_user.setGeometry(335, 30, 270, 490)
 
@@ -134,7 +135,7 @@ class Hlavni(qtw.QMainWindow):
         return self.paramy
     def save_result(self,arg):
         self.results_info = arg
-        print(arg)
+
     def save_plot(self, arg):
         self.plot_info = arg
 
@@ -144,31 +145,30 @@ class Hlavni(qtw.QMainWindow):
         self.table.setHorizontalHeaderLabels(self.labels)
         self.info_for_user.setPlainText(f"                Information panel\n\n")
     def keyPressEvent(self, event):
-        try:
-            if event.matches(qtg.QKeySequence.Copy):
-                selection = self.table.selectedRanges()
-                if selection:
-                    top_row = selection[0].topRow()
-                    bottom_row = selection[0].bottomRow()
-                    left_col = selection[0].leftColumn()
-                    right_col = selection[0].rightColumn()
+        """Allows the user to copy the values from the Qtable,
+        somehow this is not a built in function"""
+        if event.matches(qtg.QKeySequence.Copy):
+            selection = self.table.selectedRanges()
+            if selection:
+                top_row = selection[0].topRow()
+                bottom_row = selection[0].bottomRow()
+                left_col = selection[0].leftColumn()
+                right_col = selection[0].rightColumn()
 
-                    text = ""
-                    for row in range(top_row, bottom_row + 1):
-                        row_text = ""
-                        for col in range(left_col, right_col + 1):
-                            item = self.table.item(row, col)
-                            if item is not None:
-                                row_text += item.text()
-                            row_text += "\t"
-                        row_text = row_text.rstrip("\t") + "\n"
-                        text += row_text
+                text = ""
+                for row in range(top_row, bottom_row + 1):
+                    row_text = ""
+                    for col in range(left_col, right_col + 1):
+                        item = self.table.item(row, col)
+                        if item is not None:
+                            row_text += item.text()
+                        row_text += "\t"
+                    row_text = row_text.rstrip("\t") + "\n"
+                    text += row_text
 
-                    QApplication.clipboard().setText(text)
-            else:
-                super().keyPressEvent(event)
-        except Exception as e:
-            print(str(e))
+                QApplication.clipboard().setText(text)
+        else:
+            super().keyPressEvent(event)
 
     #funkce pro vyber optimalizacni metody, cislo je pak passed do kla_evaluator
     def nelder(self):
@@ -179,30 +179,30 @@ class Hlavni(qtw.QMainWindow):
         self.radio_button_value = 3
 
 
-    def pruzkum(self):
-        name = QFileDialog.getExistingDirectory(self)
+    def find_files(self):
+        directory = QFileDialog.getExistingDirectory(self)
         # if name is not empty, which means the user picked a directory, the below code will execute
-        if name:
-            self.name = name
-            self.info_for_user.appendPlainText("The necessary files are in the folder\n\n"+name+"\n")
+        if directory:
+            self.directory = directory
+            self.info_for_user.appendPlainText("The necessary files are in the folder\n\n"+directory+"\n")
 
 
-            self.dtm_files = glob.glob(self.name + "/*.dtm")
+            self.dtm_files = glob.glob(self.directory + "/*.dtm")
             self.info_for_user.appendPlainText(f"There are {len(self.dtm_files)} .dtm files in this folder and ")
-            self.dta_files = glob.glob(self.name+"/*.DTA")
-            konstant=None
+            self.dta_files = glob.glob(self.directory + "/*.DTA")
+            self.konstant=None
             for file in self.dta_files:
                 if "konstant" in file.lower():  # tries to find a file that has "konstant" or "KONSTANT" in its name
-                    konstant = file  # after the file is found, it is called konstant
+                    self.konstant = file  # after the file is found, it is called konstant
                     self.info_for_user.appendPlainText(f"konstant.dta is also present.\n")
                     break
-            if not konstant:
+            if not self.konstant:
                 self.info_for_user.appendPlainText(f"konstant.dta is NOT present.")
             QtCore.QCoreApplication.processEvents()
 
 
     def evaluate(self):
-        if self.name == None:
+        if self.directory == None:
             QMessageBox.warning(self,"Warning","A file directory has not been added")
             return
         if len(self.dtm_files)==0:
@@ -221,8 +221,8 @@ class Hlavni(qtw.QMainWindow):
             print(str(e))
     def call_thread(self):
         self.info_for_user.appendPlainText("Calculation has started\n")
-        # TODO az na .start() presunout do __init__, zavolat z button rovnou self.worker.start()
-        self.worker = WorkerThread(self.dtm_files,self.name,self.radio_button_value,self.plot_info,self.paramy)
+        # TODO az na .start() presunout do __init__, zavolat z button rovnou self.worker.start() ?? jak??
+        self.worker = WorkerThread(self.dtm_files,self.konstant, self.directory, self.radio_button_value, self.plot_info, self.paramy)
         self.worker.start()
         self.worker.update_signal_name.connect(self.update_info_name)
         self.worker.update_signal_kla.connect(self.update_info_kla)
@@ -232,72 +232,78 @@ class Hlavni(qtw.QMainWindow):
         self.info_for_user.appendPlainText(measurement_name)
     def update_info_kla(self,kla):
         self.info_for_user.appendPlainText(f"Found kla {round(kla, 6)} s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE}\n")
-    def get_dict(self,dict):
+    def get_dict(self, lists):
 
-        self.kla_list = dict["kla"]
-        self.rows_excel = dict["names"]
-        self.header = dict["header"]
+        self.kla_list = lists["kla"]
+        self.rows_excel = lists["names"]
+        self.header = lists["header"]
         self.update_GUI_table(self.kla_list, self.rows_excel)
 
         self.end_time=time.time() #vypne se čas
         #upravy pro zjisteni jak dlouho vypocet trval
         self.elapsed_time=self.end_time-self.start_time
         self.info_for_user.appendPlainText(f"Time for calculations: {round(self.elapsed_time,1)} s\n")
-        print(self.results_info)
+
         if self.results_info == True:
-            self.ulozeni_dat(self.kla_list, self.rows_excel,self.header)
+            self.save_results(lists)
         self.info_for_user.appendPlainText(
                 "Finished, if you have saved your data, you can use the clear button and start a new evaluation\n")
 
-    def ulozeni_dat(self,kla_list,list_excel,header):
-        self.excel_name = "/"+header+" results.xlsx"
-
-        vyp_excel = pd.DataFrame(kla_list, index=list_excel, columns=["kLa"])
-        with pd.ExcelWriter(self.name+self.excel_name) as writer:
+    def save_results(self, lists):
+        self.excel_name = "/"+lists["header"]+" results.xlsx"
+        indexes= lists.pop("names")
+        lists.pop("header")
+        vyp_excel = pd.DataFrame(data=lists, index=indexes)
+        with pd.ExcelWriter(self.directory + self.excel_name) as writer:
             vyp_excel.to_excel(writer, sheet_name="results")
         self.info_for_user.appendPlainText("You will find your kla values in an excel file in the directory of the experiment\n")
 
     def update_GUI_table(self,kla_list,list_excel):
         for i in range (0,len(self.dtm_files)):
             self.table.setItem(i,0,QTableWidgetItem(str(list_excel[i])))
-            self.table.setItem(i,1,QTableWidgetItem(str(round(kla_list[i][0],8))))
+            self.table.setItem(i,1,QTableWidgetItem(str(round(kla_list[i],8))))
+
 class WorkerThread(QtCore.QThread):
     update_signal_kla = QtCore.pyqtSignal(float)
     update_signal_name = QtCore.pyqtSignal(str)
     finish_signal = QtCore.pyqtSignal(dict)
-    def __init__(self,dtm_files,name,choice,plot_info,paramy):
+    def __init__(self,dtm_files,konstant_file,name,choice,plot_info,paramy):
         super().__init__()
         self.dtm_files = dtm_files
         self.name = name
         self.choice_radiobutton = choice
         self.plot_info = plot_info
         self.paramy = paramy
+        self.konstant_file = konstant_file
 
 
     def run(self):
-        try:
-            self.kla_list = []
-            self.rows_excel = []
-            for i in range(0, len(self.dtm_files)):
-                kla = [0]
-                #TODO zde poslat jen jmeno ne i, loop pres jmena ne pres i
-                data = kla_evalueator.main_function(i, self.name, self.choice_radiobutton,self.plot_info,self.paramy)
-                measurement_name = data[1]
-                kla[0] = data[0]
-                header = data[2]
-                self.update_signal_name.emit(measurement_name)
-                self.update_signal_kla.emit(kla[0])
+        kla_values = []
+        exp_names = []
+        gas_in_list = []
+        agitator_frequency_list = []
+        gas_hold_up_list = []
+        for dtm_file in self.dtm_files:
 
-                self.rows_excel.append(measurement_name)
-                self.kla_list.append(kla)
-            lists = {"kla":self.kla_list,"names":self.rows_excel,"header":header}
-            self.finish_signal.emit(lists)
-        except Exception as e:
-            print(str(e))
 
-            #self.info_for_user.appendPlainText(measurement_name)
-            #self.info_for_user.appendPlainText(f"Found kla {round(kla[0], 6)}")
+            data = kla_calculation.main_function(dtm_file, self.konstant_file,self.name, self.choice_radiobutton,self.plot_info,self.paramy)
+            kla = data[0]
+            measurement_name = data[1]
+            header = data[2]
+            gas_in = data[3]
+            agitator_frequency = data[4]
+            gas_hold_up = data[5]
+            self.update_signal_name.emit(measurement_name)
+            self.update_signal_kla.emit(kla)
 
+            exp_names.append(measurement_name)
+            kla_values.append(kla)
+            gas_in_list.append(gas_in)
+            gas_hold_up_list.append(gas_hold_up)
+            agitator_frequency_list.append(agitator_frequency)
+        lists_dict = { "names":exp_names,"Vg.":gas_in_list,"hold-up":gas_hold_up_list,
+                 "f mix":agitator_frequency_list,"kla":kla_values,"header":header}
+        self.finish_signal.emit(lists_dict)
 def main():
 
     app = qtw.QApplication([])

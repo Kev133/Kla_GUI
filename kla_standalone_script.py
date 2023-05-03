@@ -40,7 +40,7 @@ for i in range(0,18):
     for file in dta_files:
         if "konstant" in file.lower(): #tries to find a file that has "konstant" or "KONSTANT" in its name
             konstant = file #after the file is found, it is called konstant
-
+            break
         else:
             print("Could not find ""konstant"" folder")
 
@@ -178,7 +178,7 @@ for i in range(0,18):
         #     knots.append(time_data_inc[i*16])
 
         w = np.ones(len(xG))
-        w[0]=8
+        w[0]=10
         w[1]=1
         w[2]=1
         lsq = LSQUnivariateSpline(time_data_inc,xG,knots,w,ext="const")
@@ -295,6 +295,8 @@ for i in range(0,18):
 
         G1 = np.zeros(len(time_data_for_compare))
         vector = np.zeros((len(t), len(time_data_for_compare)))
+        # G2 = np.convolve(dxO2L,Ht)
+        # G2 = (np.array(G2) - G2.min()) / (G2.max() - G2.min())
         #Convolution integral
         for k in range(1,len(time_data_for_compare),1):
 
