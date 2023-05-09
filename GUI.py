@@ -112,7 +112,7 @@ class Hlavni(qtw.QMainWindow):
         frame.setLayout(layout)
         frame.setTitle("Set limits")
         #info for user
-        self.info_for_user = QPlainTextEdit("    Information panel\n\n"
+        self.info_for_user = QPlainTextEdit("                 Information panel\n\n"
             "Welcome, this program calculates kla from experimental data.\n\n", self)
         self.info_for_user.setReadOnly(True)
         self.info_for_user.setGeometry(335, 30, 270, 490)
@@ -143,7 +143,7 @@ class Hlavni(qtw.QMainWindow):
         self.table.clear()
         self.info_for_user.clear()
         self.table.setHorizontalHeaderLabels(self.labels)
-        self.info_for_user.setPlainText(f"                Information panel\n\n")
+        self.info_for_user.setPlainText(f"                 Information panel\n\n")
     def keyPressEvent(self, event):
         """Allows the user to copy the values from the Qtable,
         somehow this is not a built in function"""
@@ -286,13 +286,13 @@ class WorkerThread(QtCore.QThread):
         for dtm_file in self.dtm_files:
 
 
-            data = kla_calculation.main_function(dtm_file, self.konstant_file,self.name, self.choice_radiobutton,self.plot_info,self.paramy)
-            kla = data[0]
-            measurement_name = data[1]
-            header = data[2]
-            gas_in = data[3]
-            agitator_frequency = data[4]
-            gas_hold_up = data[5]
+            results_dict = kla_calculation.main_function(dtm_file, self.konstant_file,self.name, self.choice_radiobutton,self.plot_info,self.paramy)
+            kla = results_dict[0]
+            measurement_name = results_dict[1]
+            header = results_dict[2]
+            gas_in = results_dict[3]
+            agitator_frequency = results_dict[4]
+            gas_hold_up = results_dict[5]
             self.update_signal_name.emit(measurement_name)
             self.update_signal_kla.emit(kla)
 

@@ -10,7 +10,7 @@ import numpy as np
 from scipy.integrate import odeint, simps
 from scipy.interpolate import CubicSpline, LSQUnivariateSpline
 import matplotlib.pyplot as plt
-
+from scipy.optimize import minimize
 pi = np.pi
 exp = np.exp
 kla_list = []
@@ -245,9 +245,13 @@ def estimate_kla(var):
 
 
 def find_boundary_indexes(var):
-    """This function takes the limits that were in the GUI widget "Set limits" and
+    """
+    This function takes the limits that were in the GUI widget "Set limits" and
     finds the indexes for these limits in probe_dataN. These are then used to
-    find the time profile which will be used to compare the model and experimental values"""
+    find the time profile which will be used to compare the model and experimental values
+    :param var:
+    :return:
+    """
     # this line helps determine what index will be used for the start of the comparing times
     try:
         index_upper = np.where(var["probe_dataN"] >= var["upper_limit"])[0].max() + 1
@@ -263,22 +267,30 @@ def find_boundary_indexes(var):
     return index_lower, index_upper, time_data_for_compare
 
 
-def dSdt(t, S, kla, var, cs):
-    """Model equations, system of ODEs"""
-    kla = kla[0]
+def dSdt(t, S, kla, model_params, cs):
+    """
+    Model equations, system of ODEs
+    :param t:
+    :param S:
+    :param kla:
+    :param model_params:
+    :param cs:
+    :return:
+    """
+
     xO2L, xN2L, xO2G = S
 
     dxO2L = kla * (xO2G - xO2L)
-    dxN2L = kla * (var["difN2"] / var["difO2"]) ** 0.5 * \
-            ((cs(t) - xO2G * var["y"]) / (1 - var["y"]) - xN2L)
+    dxN2L = kla * (model_params["difN2"] / model_params["difO2"]) ** 0.5 * \
+            ((cs(t) - xO2G * model_params["y"]) / (1 - model_params["y"]) - xN2L)
 
-    gas_out = (var["gas_in_flow"] * (var["p2"] - var["pH2O"]) / (var["p1"] - var["p2"]) - var["volume"] *
-               (var["mO2"] * dxO2L * var["y"] + var["mN2"] * dxN2L * (1 - var["y"])) - var["dVG"] *
-               cs.derivative()(t)) / (cs(t) + (var["p2"] - var["pH2O"]) / (var["p1"] - var["p2"]))
+    gas_out = (model_params["gas_in_flow"] * (model_params["p2"] - model_params["pH2O"]) / (model_params["p1"] - model_params["p2"]) - model_params["volume"] *
+               (model_params["mO2"] * dxO2L * model_params["y"] + model_params["mN2"] * dxN2L * (1 - model_params["y"])) - model_params["dVG"] *
+               cs.derivative()(t)) / (cs(t) + (model_params["p2"] - model_params["pH2O"]) / (model_params["p1"] - model_params["p2"]))
 
-    dxO2G = (var["gas_in_flow"] * (var["p2"] - var["pH2O"]) / (
-            var["p1"] - var["p2"]) - var["volume"] * var["mO2"] * dxO2L - gas_out *
-             (xO2G + (var["p2"] - var["pH2O"]) / (var["p1"] - var["p2"]))) / var["dVG"]
+    dxO2G = (model_params["gas_in_flow"] * (model_params["p2"] - model_params["pH2O"]) / (
+            model_params["p1"] - model_params["p2"]) - model_params["volume"] * model_params["mO2"] * dxO2L - gas_out *
+             (xO2G + (model_params["p2"] - model_params["pH2O"]) / (model_params["p1"] - model_params["p2"]))) / model_params["dVG"]
 
     return np.array([dxO2L,
                      dxN2L,
@@ -315,48 +327,48 @@ def calculate_ODE(kla, var, cs):
     return xO2L, dxO2L
 
 
-def convolution_integral(kla, var, cs,directory):
-    oxygen_concentrations = calculate_ODE(kla, var, cs)
+def convolution_integral(kla, model_params, cs, directory):
+    oxygen_concentrations = calculate_ODE(kla, model_params, cs)
     xO2L = oxygen_concentrations[0]
     dxO2L = oxygen_concentrations[1]
-    G1 = np.zeros(len(var["time_profile_for_compare"]))
-    vector = np.zeros((len(var["t"]), len(var["time_profile_for_compare"])))
+    G1 = np.zeros(len(model_params["time_profile_for_compare"]))
+    vector = np.zeros((len(model_params["t"]), len(model_params["time_profile_for_compare"])))
     # Convolution integral
-    for k in range(1, len(var["time_profile_for_compare"]), 1):
-        i = np.where(var["t"] >= var["time_profile_for_compare"][k])[0].min()
+    for k in range(1, len(model_params["time_profile_for_compare"]), 1):
+        i = np.where(model_params["t"] >= model_params["time_profile_for_compare"][k])[0].min()
 
-        vector[0:i, k] = dxO2L[0:i] * np.flip(var["Ht"][0:i])
+        vector[0:i, k] = dxO2L[0:i] * np.flip(model_params["Ht"][0:i])
 
-        G1[k] = simps(vector[0:i, k], var["t"][0:i])
+        G1[k] = simps(vector[0:i, k], model_params["t"][0:i])
 
-    G2 = 1 + G1
-    if var["plot_choice"] != 1:
-        return sum((G2[1:] - var["probe_dataN"][var["index_upper"] + 1:var["index_lower"]]) ** 2)
-    if var["plot_choice"] == 1:
+    G2 = 1+G1
+    if model_params["plot_choice"] != 1:
+        return sum((G2[1:] - model_params["probe_dataN"][model_params["index_upper"] + 1:model_params["index_lower"]]) ** 2)
+    if model_params["plot_choice"] == 1:
         plt.clf()
-        plt.plot(var["time_profile_for_compare"][1:], G2[1:], label="Model probe response", linewidth=0.8)
-        plt.plot(var["time_data_inc"], var["xG"], label="Pressure profile", linewidth=0.8)
+        plt.plot(model_params["time_profile_for_compare"][1:], G2[1:], label="Model probe response", linewidth=0.8)
+        plt.plot(model_params["time_data_inc"], model_params["xG"], label="Pressure profile", linewidth=0.8)
         # plt.plot(time_data_for_compare[1:],probe_profile[1:],label ="Probe profile",linewidth =0.8)
         # plt.plot(t,O2L,label = "model profile",linewidth = 0.8)
-        plt.plot(var["time_data_inc"], cs(var["time_data_inc"]), label="Pressure spline", linewidth=0.8)
-        plt.plot(var["time_data_inc"], var["probe_dataN"], "ro", markersize=0.8, label="Oxygen probe response")
-        plt.title("measured by "+var["probe_name"] +" with constant: " +str(round(var["Km1"],4))+
-            "\n kla = " + str(round(kla[0], 5)))
-        plt.suptitle("Plot for experiment " + var["experiment_name"],fontsize=14)
+        plt.plot(model_params["time_data_inc"], cs(model_params["time_data_inc"]), label="Pressure spline", linewidth=0.8)
+        plt.plot(model_params["time_data_inc"], model_params["probe_dataN"], "ro", markersize=0.8, label="Oxygen probe response")
+        plt.title("measured by " + model_params["probe_name"] + " with constant: " + str(round(model_params["Km1"], 4)) +
+            "\n kla = " + str(round(kla, 5)))
+        plt.suptitle("Plot for experiment " + model_params["experiment_name"], fontsize=14)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(directory + "/Plots/Graph " + var["experiment_name"], dpi=700)
+        plt.savefig(directory + "/Plots/Graph " + model_params["experiment_name"], dpi=700)
 
 
 def minimize_functions(choice, kla_estimate, var, cs):
     if choice == 1:  # options={"maxiter":1,"disp": True}
-        return scipy.optimize.minimize(convolution_integral, kla_estimate,
+        return minimize(convolution_integral, kla_estimate,
                                        method="Nelder-Mead", tol=1e-6, args=(var, cs,"")).x
     elif choice == 2:
-        return scipy.optimize.minimize(convolution_integral, kla_estimate,
+        return minimize(convolution_integral, kla_estimate,
                                        method="COBYLA", tol=1e-6, args=(var, cs,"")).x
     elif choice == 3:
-        return scipy.optimize.minimize(convolution_integral, kla_estimate,  #L-BFGS-B, TNC are contenders
+        return minimize(convolution_integral, kla_estimate,  #L-BFGS-B, TNC are contenders
                                        method="Powell", tol=1e-6, args=(var, cs,"")).x
 def plot_results(directory,var,cs,kla):
     if not os.path.exists(directory + "/Plots"):
@@ -383,11 +395,10 @@ def main_function(dtm_file, konstant_file, directory, opt_method, plot_info, lim
                         "plot_choice": 0
                         })
 
-    kla = [0]
-    kla[0] = minimize_functions(opt_method, kla_estimation, model_input, cs)[0]
+    kla = minimize_functions(opt_method, kla_estimation, model_input, cs)[0]
     if plot_info == 1:
         plot_results(directory,model_input,cs,kla)
-    return kla[0], model_input["experiment_name"], model_input["header"],model_input["gas_in_flow_raw"],\
+    return kla, model_input["experiment_name"], model_input["header"],model_input["gas_in_flow_raw"],\
            model_input["agitator_frequency"],model_input["gas_hold_up"]
 
 if __name__ == "__main__":
