@@ -1,3 +1,4 @@
+from PyQt5 import sip
 import PyQt5.QtWidgets as qtw
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
@@ -26,9 +27,7 @@ class Hlavni(qtw.QMainWindow):
         self.radio_button_value= 1
         self.paramy = [0.99,0.03]
         self.font_size = 11
-
         self.init_ui()
-
 
     def init_ui(self):
         self.setWindowTitle(" Program for evaluation of oxygen probe data")
@@ -37,7 +36,7 @@ class Hlavni(qtw.QMainWindow):
         self.setWindowIcon(qtg.QIcon('kla_icon.png'))
         self.setStyleSheet("")
         #directory button
-        self.button1 = QPushButton(" Add directory", self)
+        self.button1 = QPushButton(" Add folder", self)
         self.button1.setGeometry(90, 25, 160, 50)
         self.button1.clicked.connect(self.find_files)
         folder = QStyle.SP_DirOpenIcon
@@ -66,6 +65,7 @@ class Hlavni(qtw.QMainWindow):
         self.hbox_layout.addWidget(self.opt_min3)
         self.group_box.setLayout(self.hbox_layout)
         self.group_box.setFont(qtg.QFont("Arial", self.font_size))
+
         # radiobutton save plot
         self.plot_box = QGroupBox(self)
         self.plot_box.setTitle("Save plots")
@@ -81,6 +81,7 @@ class Hlavni(qtw.QMainWindow):
         self.plot_radio_no.clicked.connect(lambda: self.save_plot(False))
         self.plot_radio_no.setChecked(True)
         self.plot_box.setFont(qtg.QFont("Arial", self.font_size))
+
         #radiobutton save excel
         self.excel_box = QGroupBox(self)
         self.excel_box.setTitle("Save results")
@@ -96,6 +97,7 @@ class Hlavni(qtw.QMainWindow):
         self.excel_radio_no.clicked.connect(lambda: self.save_result(False))
         self.excel_radio_no.setChecked(True)
         self.excel_box.setFont(qtg.QFont("Arial", self.font_size))
+
         # Set limits (paramy)
         self.e1 = QLineEdit(self)
         self.e2 = QLineEdit(self)
@@ -111,6 +113,7 @@ class Hlavni(qtw.QMainWindow):
         layout.addRow("Lower limit", self.e2)
         frame.setLayout(layout)
         frame.setTitle("Set limits")
+
         #info for user
         self.info_for_user = QPlainTextEdit("                 Information panel\n\n"
             "Welcome, this program calculates kla from experimental data.\n\n", self)
@@ -144,6 +147,7 @@ class Hlavni(qtw.QMainWindow):
         self.info_for_user.clear()
         self.table.setHorizontalHeaderLabels(self.labels)
         self.info_for_user.setPlainText(f"                 Information panel\n\n")
+
     def keyPressEvent(self, event):
         """Allows the user to copy the values from the Qtable,
         somehow this is not a built in function"""
@@ -209,7 +213,6 @@ class Hlavni(qtw.QMainWindow):
             QMessageBox.warning(self, "Warning", "There are no .dtm files in this folder")
             return
         self.paramy = self.get_paramy()
-        print("Evaluation of kla has started")
         self.start_time=time.time() # spustí se čas
 
 
@@ -221,15 +224,19 @@ class Hlavni(qtw.QMainWindow):
             print(str(e))
     def call_thread(self):
         self.info_for_user.appendPlainText("Calculation has started\n")
-        # TODO az na .start() presunout do __init__, zavolat z button rovnou self.worker.start() ?? jak??
         self.worker = WorkerThread(self.dtm_files,self.konstant, self.directory, self.radio_button_value, self.plot_info, self.paramy)
         self.worker.start()
         self.worker.update_signal_name.connect(self.update_info_name)
         self.worker.update_signal_kla.connect(self.update_info_kla)
         self.worker.finish_signal.connect(self.get_dict)
 
-    def update_info_name(self,measurement_name):
+    def update_info_name(self,dictionary_with_name):
+        measurement_name = dictionary_with_name[0]
+        check_correct_data = dictionary_with_name[1]
         self.info_for_user.appendPlainText(measurement_name)
+        if check_correct_data == False:
+           self.info_for_user.appendPlainText(f"The data for gas flow or agitator frequency in "
+                                               f"{measurement_name}.dtm do not match those in KONSTANT.DTA")
     def update_info_kla(self,kla):
         self.info_for_user.appendPlainText(f"Found kla {round(kla, 6)} s\N{SUPERSCRIPT MINUS}\N{SUPERSCRIPT ONE}\n")
     def get_dict(self, lists):
@@ -264,17 +271,23 @@ class Hlavni(qtw.QMainWindow):
             self.table.setItem(i,1,QTableWidgetItem(str(round(kla_list[i],8))))
 
 class WorkerThread(QtCore.QThread):
+    """
+    seperate thread which calls the kla_calculation module and starts the evaluation,
+    the directories to the dtm files and konsant.dta file are passed, as well as the choice for the
+    optimization method, information if the user wishes to save plots and the upper and lower
+    limits used in the evaluation.
+    """
     update_signal_kla = QtCore.pyqtSignal(float)
-    update_signal_name = QtCore.pyqtSignal(str)
+    update_signal_name = QtCore.pyqtSignal(list)
     finish_signal = QtCore.pyqtSignal(dict)
-    def __init__(self,dtm_files,konstant_file,name,choice,plot_info,paramy):
+    def __init__(self, dtm_files, dta_file, name, choice, plot_info, limits):
         super().__init__()
         self.dtm_files = dtm_files
         self.name = name
         self.choice_radiobutton = choice
         self.plot_info = plot_info
-        self.paramy = paramy
-        self.konstant_file = konstant_file
+        self.limits = limits
+        self.konstant_file = dta_file
 
 
     def run(self):
@@ -283,17 +296,22 @@ class WorkerThread(QtCore.QThread):
         gas_in_list = []
         agitator_frequency_list = []
         gas_hold_up_list = []
+        # for loop which loops through the directories of the .dtm files after kla is evaluated for the
+        # previous .dtm file
         for dtm_file in self.dtm_files:
 
-
-            results_dict = kla_calculation.main_function(dtm_file, self.konstant_file,self.name, self.choice_radiobutton,self.plot_info,self.paramy)
+            results_dict = kla_calculation.main_function(dtm_file, self.konstant_file, self.name, self.choice_radiobutton, self.plot_info, self.limits)
             kla = results_dict[0]
             measurement_name = results_dict[1]
             header = results_dict[2]
             gas_in = results_dict[3]
             agitator_frequency = results_dict[4]
             gas_hold_up = results_dict[5]
-            self.update_signal_name.emit(measurement_name)
+            correct_data_check = results_dict[6]
+            data = [measurement_name,correct_data_check]
+            # emits signals back to the gui thread with kla and information mainly used to verify if the
+            # values in the .dta and .dtm files match
+            self.update_signal_name.emit(data)
             self.update_signal_kla.emit(kla)
 
             exp_names.append(measurement_name)
